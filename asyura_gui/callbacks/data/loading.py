@@ -1,3 +1,4 @@
+from asyura_core.spice_models import SpiceReferencePeak
 from ...callback_runtime import *
 
 from .ub_display import show_ubmatrix
@@ -161,6 +162,7 @@ def loadfile(env):
         state['display_uv_angle'] = None
         state['display_v_hkl'] = None
         state['display_mode'] = None
+        state['spice_reference'] = None
 
         if not is_single_crystal:  # powder
             w_off = 0.0
@@ -191,17 +193,32 @@ def loadfile(env):
             state['u'] = np.array([float(txt9.get()), float(txt10.get()), float(txt11.get())], dtype=float)
             state['v'] = np.array([float(txt12.get()), float(txt13.get()), float(txt14.get())], dtype=float)
 
-            ref_hkl = np.array([
-                float(txt_ref_h.get()),
-                float(txt_ref_k.get()),
-                float(txt_ref_l.get()),
-            ], dtype=float)
-            ref_c2 = float(txt_ref_c2.get())
-            ref_a2 = float(txt_ref_a2.get())
-            ref_ry = float(txt_ref_ry.get())   # SPICE ry -> Mantid/PDF mu
-            ref_rx = float(txt_ref_rx.get())   # SPICE rx -> Mantid/PDF nu
-            ref_ei = float(txt_ref_ei.get())
-            ref_ef = float(txt_ref_ef.get())
+            # Keep the nine values belonging to SPICE Peak1 together.
+            # Application-wide shared state remains a dictionary, but this
+            # structured record is a typed value stored inside that state.
+            state['spice_reference'] = SpiceReferencePeak.from_values(
+                h=txt_ref_h.get(),
+                k=txt_ref_k.get(),
+                l=txt_ref_l.get(),
+                a2=txt_ref_a2.get(),
+                c2=txt_ref_c2.get(),
+                ry=txt_ref_ry.get(),
+                rx=txt_ref_rx.get(),
+                ei=txt_ref_ei.get(),
+                ef=txt_ref_ef.get(),
+            )
+            spice_ref = state['spice_reference']
+
+            # Compatibility aliases for the existing data-loading branches.
+            # They are derived from one immutable reference object, rather
+            # than being nine independent pieces of shared state.
+            ref_hkl = spice_ref.hkl
+            ref_c2 = spice_ref.c2
+            ref_a2 = spice_ref.a2
+            ref_ry = spice_ref.ry
+            ref_rx = spice_ref.rx
+            ref_ei = spice_ref.ei
+            ref_ef = spice_ref.ef
 
             # Reference Peak1 motor readings are the offsets for the
             # two tilt axes.
@@ -290,11 +307,11 @@ def loadfile(env):
 
             data_omega_ref = _calculate_data_reference_omega(
                 state['data_UBmatrix'],
-                ref_hkl,
-                data_ref_c2,
-                ref_a2,
-                ref_ei,
-                ref_ef,
+                spice_ref.hkl,
+                spice_ref.c2,
+                spice_ref.a2,
+                spice_ref.ei,
+                spice_ref.ef,
             )
 
             data_c2_sign = float(DATA_C2_TO_OMEGA_SIGN)
