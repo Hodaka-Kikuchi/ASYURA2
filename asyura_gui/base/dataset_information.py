@@ -1,11 +1,17 @@
 """Dataset Information GUI section."""
 
 
+def _configure_file_listbox(listbox, remove_callback, tk):
+    listbox.configure(selectmode=tk.EXTENDED, exportselection=False)
+    listbox.bind("<Delete>", remove_callback)
+    listbox.bind("<BackSpace>", remove_callback)
+
 
 def build_dataset_information(env):
     calibration = env['calibration']
     clear = env['clear']
     file_select = env['file_select']
+    remove_selected = env['remove_selected']
     maskall = env['maskall']
     maskclear = env['maskclear']
     mergefile = env['mergefile']
@@ -14,6 +20,7 @@ def build_dataset_information(env):
     root = env['root']
     sbclear = env['sbclear']
     sbfile_select = env['sbfile_select']
+    sbremove_selected = env['sbremove_selected']
     state = env['state']
     tk = env['tk']
     ttk = env['ttk']
@@ -102,10 +109,11 @@ def build_dataset_information(env):
     frame2fg.columnconfigure(0, weight=1)
     frame2fg.columnconfigure(1, weight=1)
     frame2fg.columnconfigure(2, weight=1)
+    frame2fg.columnconfigure(3, weight=1)
     frame2fg.rowconfigure(0, weight=0)
-    frame2fg.rowconfigure(1, weight=1)
-    frame2fg.rowconfigure(2, weight=0)
-    #frame2fg.rowconfigure(3, weight=1)
+    frame2fg.rowconfigure(1, weight=0)
+    frame2fg.rowconfigure(2, weight=1)
+    frame2fg.rowconfigure(3, weight=0)
 
     # ウィジェットの配置
     notebook00.pack(expand=True, fill='both')
@@ -114,15 +122,16 @@ def build_dataset_information(env):
     fglist=[]
     # 各種ウィジェットの作成
     Listbox = tk.Listbox(frame2fg,listvariable=fglist,width=35, height=9)
-    Listbox.grid(row=1, column=0,columnspan=3,sticky="NSEW")
+    Listbox.grid(row=2, column=0,columnspan=4,sticky="NSEW")
+    _configure_file_listbox(Listbox, remove_selected, tk)
     # スクロールバーの作成
     scrollbar = ttk.Scrollbar(frame2fg, orient=tk.VERTICAL, command=Listbox.yview)
-    scrollbar.grid(row=1, column=3, sticky=(tk.N, tk.S))
+    scrollbar.grid(row=2, column=4, sticky=(tk.N, tk.S))
     # スクロールバーをListboxに反映
     Listbox["yscrollcommand"] = scrollbar.set
 
     sbxscrollbar = ttk.Scrollbar(frame2fg, orient=tk.HORIZONTAL, command=Listbox.xview)
-    sbxscrollbar.grid(row=2, column=0,columnspan=3, sticky=(tk.W, tk.E))
+    sbxscrollbar.grid(row=3, column=0,columnspan=4, sticky=(tk.W, tk.E))
     Listbox["xscrollcommand"] = sbxscrollbar.set
 
     state['file_paths']=[]
@@ -133,17 +142,24 @@ def build_dataset_information(env):
 
     #ファイルの入力欄のボタンの作成
     button2 = ttk.Button(frame2fg,text="select",command=file_select,width=6)
-    button2.grid(row=0, column=0,sticky="NSEW")
+    button2.grid(row=0, column=0,columnspan=2,sticky="NSEW")
+
+    button_remove = ttk.Button(
+        frame2fg,
+        text="Remove selected",
+        command=remove_selected,
+    )
+    button_remove.grid(row=0, column=2, columnspan=2, sticky="NSEW")
 
     #ファイルのクリアのボタンの作成
     button3 = ttk.Button(frame2fg,text="clear",command=clear,width=6)
-    button3.grid(row=0, column=2,sticky="NSEW")
+    button3.grid(row=1, column=2,columnspan=2,sticky="NSEW")
 
     # ファイルのマージ
 
     #マージファイルのクリアのボタンの作成
     button3_3 = ttk.Button(frame2fg,text="merge",command=mergefile,width=6)
-    button3_3.grid(row=0, column=1,sticky="NSEW")
+    button3_3.grid(row=1, column=0,columnspan=2,sticky="NSEW")
 
     ########
     # toleranceの自動設定
@@ -322,24 +338,26 @@ def build_dataset_information(env):
     frame2bg.columnconfigure(0, weight=1)
     frame2bg.columnconfigure(1, weight=1)
     frame2bg.columnconfigure(2, weight=1)
+    frame2bg.columnconfigure(3, weight=1)
     frame2bg.rowconfigure(0, weight=0)
-    frame2bg.rowconfigure(1, weight=1)
-    frame2bg.rowconfigure(2, weight=0)
-    #frame2bg.rowconfigure(3, weight=1)
+    frame2bg.rowconfigure(1, weight=0)
+    frame2bg.rowconfigure(2, weight=1)
+    frame2bg.rowconfigure(3, weight=0)
 
     #ダミーのリストボックス
     sblist=[]
     # 各種ウィジェットの作成
     sbListbox = tk.Listbox(frame2bg,listvariable=sblist,width=35,height=9)
-    sbListbox.grid(row=1, column=0,columnspan=3,sticky="NSEW")
+    sbListbox.grid(row=2, column=0,columnspan=4,sticky="NSEW")
+    _configure_file_listbox(sbListbox, sbremove_selected, tk)
     # スクロールバーの作成
     scrollbar = ttk.Scrollbar(frame2bg, orient=tk.VERTICAL, command=sbListbox.yview)
-    scrollbar.grid(row=1, column=3, sticky=(tk.N, tk.S))
+    scrollbar.grid(row=2, column=4, sticky=(tk.N, tk.S))
     # スクロールバーをListboxに反映
     sbListbox["yscrollcommand"] = scrollbar.set
 
     sbxscrollbar = ttk.Scrollbar(frame2bg, orient=tk.HORIZONTAL, command=sbListbox.xview)
-    sbxscrollbar.grid(row=2, column=0,columnspan=3, sticky=(tk.W, tk.E))
+    sbxscrollbar.grid(row=3, column=0,columnspan=4, sticky=(tk.W, tk.E))
     sbListbox["xscrollcommand"] = sbxscrollbar.set
 
     state['sbfile_paths']=[]
@@ -349,17 +367,24 @@ def build_dataset_information(env):
 
     #ファイルの入力欄のボタンの作成
     button1_sb = ttk.Button(frame2bg,text="select",command=sbfile_select,width=6)
-    button1_sb.grid(row=0, column=0,sticky="NSEW")
+    button1_sb.grid(row=0, column=0,columnspan=2,sticky="NSEW")
+
+    button_remove_sb = ttk.Button(
+        frame2bg,
+        text="Remove selected",
+        command=sbremove_selected,
+    )
+    button_remove_sb.grid(row=0, column=2, columnspan=2, sticky="NSEW")
 
     #ファイルのクリアのボタンの作成
     button2_sb = ttk.Button(frame2bg,text="clear",command=sbclear,width=6)
-    button2_sb.grid(row=0, column=2,sticky="NSEW")
+    button2_sb.grid(row=1, column=2,columnspan=2,sticky="NSEW")
 
     # ファイルのマージ
 
     #マージファイルのクリアのボタンの作成
     button3_sb = ttk.Button(frame2bg,text="merge",command=mergefile_sb,width=6)
-    button3_sb.grid(row=0, column=1,sticky="NSEW")
+    button3_sb.grid(row=1, column=0,columnspan=2,sticky="NSEW")
     ###############################
 
     # data toleranceフレーム
