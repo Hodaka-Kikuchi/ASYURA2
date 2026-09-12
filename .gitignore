@@ -1,0 +1,4 @@
+dist/
+build/
+asyura_gui/__pycache__/
+asyura_core/__pycache__/
