@@ -1,43 +1,8 @@
 from ...callback_runtime import *
-
-
-def _path_key(path):
-    """Return a normalized key used only for duplicate detection."""
-    return os.path.normcase(os.path.abspath(os.fspath(path)))
-
-
-def _append_unique_paths(paths, selected):
-    """Keep *paths* ordered and unique, then append only new selections.
-
-    The stored path itself is left unchanged. Normalization is used only for
-    comparison, so downstream data readers continue to receive the same path
-    strings selected by the user.
-    """
-    unique_paths = []
-    existing = set()
-
-    # Also clean up duplicates that may already be present in state from an
-    # older selection made before this fix.
-    for path in paths:
-        key = _path_key(path)
-        if key not in existing:
-            unique_paths.append(path)
-            existing.add(key)
-
-    for path in selected:
-        key = _path_key(path)
-        if key not in existing:
-            unique_paths.append(path)
-            existing.add(key)
-
-    paths[:] = unique_paths
-
-
-def _refresh_path_listbox(listbox, paths):
-    """Show exactly one row for each path that will actually be read."""
-    listbox.delete(0, tk.END)
-    for path in paths:
-        listbox.insert(tk.END, os.path.basename(path))
+from ...file_lists import append_unique_paths as _append_unique_paths
+from ...file_lists import path_key as _path_key
+from ...file_lists import refresh_path_listbox as _refresh_path_listbox
+from ...file_lists import remove_selected_from_state as _remove_selected
 
 
 def file_select(env):
@@ -52,8 +17,13 @@ def file_select(env):
     _append_unique_paths(state['file_paths'], selected)
 
     # Keep legacy display-name state in sync with the actual read list.
-    state['flist'] = [os.path.basename(path) for path in state['file_paths']]
-    _refresh_path_listbox(Listbox, state['file_paths'])
+    state['flist'] = _refresh_path_listbox(Listbox, state['file_paths'])
+
+
+def remove_selected(env, event=None):
+    _remove_selected(env, 'Listbox', 'file_paths', 'flist')
+    if event is not None:
+        return 'break'
 
 
 def clear(env):
@@ -96,10 +66,16 @@ def sbfile_select(env):
     _append_unique_paths(state['sbfile_paths'], selected)
 
     # Background files follow the same rule as the main data files.
-    state['sblists'] = [
-        os.path.basename(path) for path in state['sbfile_paths']
-    ]
-    _refresh_path_listbox(sbListbox, state['sbfile_paths'])
+    state['sblists'] = _refresh_path_listbox(
+        sbListbox,
+        state['sbfile_paths'],
+    )
+
+
+def sbremove_selected(env, event=None):
+    _remove_selected(env, 'sbListbox', 'sbfile_paths', 'sblists')
+    if event is not None:
+        return 'break'
 
 
 def sbclear(env):

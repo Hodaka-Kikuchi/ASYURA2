@@ -1,8 +1,10 @@
 from .selection import file_select
+from .selection import remove_selected
 from .selection import clear
 from .selection import vfile_select
 from .selection import vclear
 from .selection import sbfile_select
+from .selection import sbremove_selected
 from .selection import sbclear
 from .merge import mergefile
 from .merge import mergefile_sb
@@ -21,10 +23,12 @@ def create_files_callbacks(env):
     """Build callback registry for this feature package."""
     return {
         'file_select': partial(file_select, env),
+        'remove_selected': partial(remove_selected, env),
         'clear': partial(clear, env),
         'vfile_select': partial(vfile_select, env),
         'vclear': partial(vclear, env),
         'sbfile_select': partial(sbfile_select, env),
+        'sbremove_selected': partial(sbremove_selected, env),
         'sbclear': partial(sbclear, env),
         'mergefile': partial(mergefile, env),
         'mergefile_sb': partial(mergefile_sb, env),
