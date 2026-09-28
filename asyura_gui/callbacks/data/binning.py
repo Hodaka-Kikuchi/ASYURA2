@@ -391,20 +391,20 @@ def data_box(env):
                 state['sb_I'], state['sb_Ierr'] = bin_single_crystal_data(state['sb_databox'], state['sb_monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
 
                 for ne in range(len(state['energylist'])):
-                    if state['energylist'][ne]>=0:
-                        ssf1=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt2.get())))
-                        state['I'][ne,:,:]=ssf1*state['I'][ne,:,:]
-                        state['Ierr'][ne,:,:]=ssf1*state['Ierr'][ne,:,:]
-                        ssf2=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt3.get())))
-                        state['sb_I'][ne,:,:]=ssf2*state['sb_I'][ne,:,:]
-                        state['sb_Ierr'][ne,:,:]=ssf2*state['sb_Ierr'][ne,:,:]
-                    else:
-                        ssf1=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt2.get()))-1)
-                        state['I'][ne,:,:]=ssf1*state['I'][ne,:,:]
-                        state['Ierr'][ne,:,:]=ssf1*state['Ierr'][ne,:,:]
-                        ssf2=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt3.get()))-1)
-                        state['sb_I'][ne,:,:]=ssf2*state['sb_I'][ne,:,:]
-                        state['sb_Ierr'][ne,:,:]=ssf2*state['sb_Ierr'][ne,:,:]
+                    # Detailed-balance correction for chi'': use the same
+                    # factor for both positive and negative energy transfer.
+                    # For E < 0, ssf is negative, making chi'' odd in E.
+                    ssf1 = 1 - math.exp(
+                        -11.60497 * state['energylist'][ne] / float(sb_txt2.get())
+                    )
+                    state['I'][ne,:,:] = ssf1 * state['I'][ne,:,:]
+                    state['Ierr'][ne,:,:] = abs(ssf1) * state['Ierr'][ne,:,:]
+
+                    ssf2 = 1 - math.exp(
+                        -11.60497 * state['energylist'][ne] / float(sb_txt3.get())
+                    )
+                    state['sb_I'][ne,:,:] = ssf2 * state['sb_I'][ne,:,:]
+                    state['sb_Ierr'][ne,:,:] = abs(ssf2) * state['sb_Ierr'][ne,:,:]
                     # プログレスバー (確定的)。エネルギー毎にステータスが進む
                     var2=var2+1
                     state['pb2']["value"] = var2
@@ -447,12 +447,13 @@ def data_box(env):
                         state['energylist'][ne] = state['energylist'][ne]
                     else:
                         state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
-                    if state['energylist'][ne]>=0:
-                        ssf1=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt2.get())))
-                        ssf2=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt3.get())))
-                    else:
-                        ssf1=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt2.get()))-1)
-                        ssf2=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt3.get()))-1)
+                    # Same detailed-balance factor on both sides of E=0.
+                    ssf1 = 1 - math.exp(
+                        -11.60497 * state['energylist'][ne] / float(sb_txt2.get())
+                    )
+                    ssf2 = 1 - math.exp(
+                        -11.60497 * state['energylist'][ne] / float(sb_txt3.get())
+                    )
                     Ind_e = list(np.ravel(ind_e))
                     sb_Ind_e = list(np.ravel(sb_ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
@@ -533,14 +534,12 @@ def data_box(env):
                 state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
 
                 for ne in range(len(state['energylist'])):    
-                    if state['energylist'][ne]>=0:
-                        ssf1=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt2.get())))
-                        state['I'][ne,:,:]=ssf1*state['I'][ne,:,:]
-                        state['Ierr'][ne,:,:]=ssf1*state['Ierr'][ne,:,:]
-                    else:
-                        ssf1=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt2.get()))-1)
-                        state['I'][ne,:,:]=ssf1*state['I'][ne,:,:]
-                        state['Ierr'][ne,:,:]=ssf1*state['Ierr'][ne,:,:]
+                    # Detailed-balance correction for chi''.
+                    ssf1 = 1 - math.exp(
+                        -11.60497 * state['energylist'][ne] / float(sb_txt2.get())
+                    )
+                    state['I'][ne,:,:] = ssf1 * state['I'][ne,:,:]
+                    state['Ierr'][ne,:,:] = abs(ssf1) * state['Ierr'][ne,:,:]
 
                     # プログレスバー (確定的)。エネルギー毎にステータスが進む
                     var2=var2+1
@@ -562,12 +561,13 @@ def data_box(env):
                         state['energylist'][ne] = state['energylist'][ne]
                     else:
                         state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
-                    if state['energylist'][ne]>=0:
-                        ssf1=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt2.get())))
-                        ssf2=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt3.get())))
-                    else:
-                        ssf1=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt2.get()))-1)
-                        ssf2=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt3.get()))-1)
+                    # Same detailed-balance factor on both sides of E=0.
+                    ssf1 = 1 - math.exp(
+                        -11.60497 * state['energylist'][ne] / float(sb_txt2.get())
+                    )
+                    ssf2 = 1 - math.exp(
+                        -11.60497 * state['energylist'][ne] / float(sb_txt3.get())
+                    )
                     Ind_e = list(np.ravel(ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
                     Monitorbox_kari = state['monitorbox'][Ind_e]
