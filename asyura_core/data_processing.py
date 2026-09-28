@@ -6,19 +6,110 @@ import numpy as np
 from scipy import stats
 
 
-def bin_single_crystal_data(box, nv, nu, energy_list, qv_edges, qu_edges):
+def combine_normalized_points(intensity, effective_monitor, nominal_monitor):
+    """Combine normalized counting data by summing counts and exposure.
+
+    Parameters
+    ----------
+    intensity : array-like
+        Per-point intensity already normalized to ``nominal_monitor``.
+        For ASYURA this is
+            I_i = D_i * nominal_monitor / M_eff_i,
+        where D_i is the raw detector count and M_eff_i includes the
+        detector-channel sensitivity correction.
+    effective_monitor : array-like
+        Per-point effective monitor M_eff_i.
+    nominal_monitor : float
+        The nominal monitor value used when ``intensity`` was created.
+
+    Returns
+    -------
+    intensity_bin, error_bin : float
+        Ratio-of-sums intensity and its Poisson uncertainty:
+            I_bin = nominal_monitor * sum(D_i) / sum(M_eff_i)
+            err   = nominal_monitor * sqrt(sum(D_i)) / sum(M_eff_i)
+
+    Notes
+    -----
+    Since I_i * M_eff_i = nominal_monitor * D_i, the raw counts need not
+    be stored separately.  Keeping M_eff_i is sufficient, including for
+    zero-count points (which still contribute exposure to the denominator).
+    """
+    intensity = np.asarray(intensity, dtype=float)
+    effective_monitor = np.asarray(effective_monitor, dtype=float)
+    nominal_monitor = float(nominal_monitor)
+
+    if intensity.shape != effective_monitor.shape:
+        raise ValueError(
+            "intensity/effective_monitor shape mismatch: "
+            f"{intensity.shape} vs {effective_monitor.shape}"
+        )
+    if not np.isfinite(nominal_monitor) or nominal_monitor <= 0:
+        raise ValueError("nominal_monitor must be a positive finite number")
+
+    valid = (
+        np.isfinite(intensity)
+        & np.isfinite(effective_monitor)
+        & (effective_monitor > 0)
+    )
+    if not np.any(valid):
+        return np.nan, np.nan
+
+    weighted_sum = np.sum(intensity[valid] * effective_monitor[valid])
+    monitor_sum = np.sum(effective_monitor[valid])
+
+    if not np.isfinite(weighted_sum) or monitor_sum <= 0:
+        return np.nan, np.nan
+
+    # weighted_sum = nominal_monitor * sum(raw_counts)
+    raw_counts_sum = weighted_sum / nominal_monitor
+    # Detector counts should be non-negative.  Tiny negative round-off is
+    # clipped; a genuinely negative value is not a valid Poisson count sum.
+    if raw_counts_sum < 0:
+        if np.isclose(raw_counts_sum, 0.0, atol=1e-12, rtol=1e-12):
+            raw_counts_sum = 0.0
+        else:
+            return weighted_sum / monitor_sum, np.nan
+
+    bin_i = weighted_sum / monitor_sum
+    bin_ierr = nominal_monitor * np.sqrt(raw_counts_sum) / monitor_sum
+    return bin_i, bin_ierr
+
+
+def bin_single_crystal_data(
+    box,
+    effective_monitor,
+    nominal_monitor,
+    nv,
+    nu,
+    energy_list,
+    qv_edges,
+    qu_edges,
+):
     """Bin single-crystal data into (energy, V, U) cells.
 
-    This is the numerical part that used to be nested inside the GUI callback
-    ``data_box``.  It has no dependency on Tkinter or GUI state.
+    The point intensities in ``box[4, :]`` are already normalized to the
+    common nominal monitor.  Binning is therefore performed by reconstructing
+    the summed raw counts through ``I_i * M_eff_i`` and dividing by the summed
+    effective monitor, rather than by taking an arithmetic mean of the
+    normalized points.
     """
     box = np.asarray(box)
+    effective_monitor = np.asarray(effective_monitor, dtype=float)
+    nominal_monitor = float(nominal_monitor)
+
     x = box[3, :]
     y = box[1, :] / nv
     z = box[0, :] / nu
-
     intensity = box[4, :]
-    intensity_error = box[5, :]
+
+    if effective_monitor.shape != intensity.shape:
+        raise ValueError(
+            "box/effective_monitor length mismatch: "
+            f"{intensity.shape} vs {effective_monitor.shape}"
+        )
+    if not np.isfinite(nominal_monitor) or nominal_monitor <= 0:
+        raise ValueError("nominal_monitor must be a positive finite number")
 
     energy = np.asarray(energy_list, dtype=float)
 
@@ -31,19 +122,51 @@ def bin_single_crystal_data(box, nv, nu, energy_list, qv_edges, qu_edges):
 
     data = np.vstack([x, y, z]).T
 
-    i_sum, _, _ = stats.binned_statistic_dd(
-        data, intensity, statistic="sum", bins=[x_edges, qv_edges, qu_edges]
+    valid = (
+        np.all(np.isfinite(data), axis=1)
+        & np.isfinite(intensity)
+        & np.isfinite(effective_monitor)
+        & (effective_monitor > 0)
     )
-    ierr_sum, _, _ = stats.binned_statistic_dd(
-        data, intensity_error**2, statistic="sum", bins=[x_edges, qv_edges, qu_edges]
+
+    data_valid = data[valid]
+    intensity_valid = intensity[valid]
+    monitor_valid = effective_monitor[valid]
+
+    # I_i * M_eff_i = nominal_monitor * D_i.
+    weighted_intensity = intensity_valid * monitor_valid
+
+    weighted_sum, _, _ = stats.binned_statistic_dd(
+        data_valid,
+        weighted_intensity,
+        statistic="sum",
+        bins=[x_edges, qv_edges, qu_edges],
     )
-    count, _, _ = stats.binned_statistic_dd(
-        data, None, statistic="count", bins=[x_edges, qv_edges, qu_edges]
+    monitor_sum, _, _ = stats.binned_statistic_dd(
+        data_valid,
+        monitor_valid,
+        statistic="sum",
+        bins=[x_edges, qv_edges, qu_edges],
     )
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        bin_i = np.where(count != 0, i_sum / count, np.nan)
-        bin_ierr = np.where(count != 0, np.sqrt(ierr_sum) / count, np.nan)
+        bin_i = np.where(
+            monitor_sum > 0,
+            weighted_sum / monitor_sum,
+            np.nan,
+        )
+
+        raw_counts_sum = weighted_sum / nominal_monitor
+        raw_counts_sum = np.where(
+            (raw_counts_sum >= 0) | np.isclose(raw_counts_sum, 0.0, atol=1e-12, rtol=1e-12),
+            np.maximum(raw_counts_sum, 0.0),
+            np.nan,
+        )
+        bin_ierr = np.where(
+            monitor_sum > 0,
+            nominal_monitor * np.sqrt(raw_counts_sum) / monitor_sum,
+            np.nan,
+        )
 
     return bin_i, bin_ierr
 

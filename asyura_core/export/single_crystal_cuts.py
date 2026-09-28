@@ -1,6 +1,8 @@
 import csv
 import numpy as np
+import tkinter as tk
 from tkinter import filedialog
+from itertools import zip_longest
 
 def save_1Dhw_I(state):
     filename = tk.filedialog.asksaveasfilename(

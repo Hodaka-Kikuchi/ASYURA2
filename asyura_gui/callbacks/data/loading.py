@@ -176,6 +176,7 @@ def loadfile(env):
             data_ref_rx = 0.0
             state['NU1'] = state['NV1'] = 1.0
             N_mcu = float(txt15.get())
+            state['N_mcu'] = N_mcu
             bgm = bg_type.get()
 
         else:  # single crystal
@@ -188,6 +189,7 @@ def loadfile(env):
             lbe = float(txt5.get())
             lga = float(txt6.get())
             N_mcu = float(txt15.get())
+            state['N_mcu'] = N_mcu
 
             # shared variables are stored in state
             state['u'] = np.array([float(txt9.get()), float(txt10.get()), float(txt11.get())], dtype=float)
@@ -431,7 +433,7 @@ def loadfile(env):
             #ki2 = np.zeros((2, len(pt)*24))
             #Qのベクトルとスカラーの定義、あとここに強度の情報を加える。
             # shared variables are stored in state
-            state['Qvector']=np.zeros((6, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error
+            state['Qvector']=np.zeros((7, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error, 6 effective monitor (internal)
             #検出器の角度
             d_angle=np.linspace(0, 46, 24)
             A2 = np.zeros((1, 24))
@@ -490,6 +492,9 @@ def loadfile(env):
                     lorentz_factor = 1
                     state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
                     state['Qvector'][5,24*n+m] = math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
+                    # Effective monitor/exposure for ratio-of-sums binning.
+                    # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
+                    state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
 
             # 全てのデータを格納するボックスを立ち上げる。Qvectorのデータをどんどん連結していく。最初のファイルだけdataboxをQvectorにする。
 
@@ -667,9 +672,9 @@ def loadfile(env):
                     kf = np.zeros((2, len(pt)*24))
                     #ki2 = np.zeros((2, len(pt)*24))
                     #Qのベクトルとスカラーの定義、あとここに強度の情報を加える。
-                    state['Qvector']=np.zeros((6, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error
+                    state['Qvector']=np.zeros((7, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error, 6 effective monitor (internal)
                     # shared variables are stored in state
-                    state['sb_Qvector']=np.zeros((6, len(pt)*24))# backgroundファイル用
+                    state['sb_Qvector']=np.zeros((7, len(pt)*24))# backgroundファイル用
                     #検出器の角度
                     d_angle=np.linspace(0, 46, 24)
                     A2 = np.zeros((1, 24))
@@ -760,7 +765,11 @@ def loadfile(env):
                                 state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
                                 state['sb_Qvector'][4,24*n+m] = np.sum(sb_data_e[index_BG,5+m])/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
                                 state['Qvector'][5,24*n+m] = (math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n])*lorentz_factor
+                                # Effective monitor/exposure for ratio-of-sums binning.
+                                # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
+                                state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
                                 state['sb_Qvector'][5,24*n+m] = math.sqrt(np.sum(sb_data_e[index_BG,5+m]))/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
+                                state['sb_Qvector'][6,24*n+m] = np.sum(sb_data_e[index_BG,29])*fit_result[0,m]/fit_result[0,11]/lorentz_factor
 
                         else:# 対応するエネルギーが無かった場合
                             if sbtype2.get()==0:# Nanが選択されていない
@@ -815,7 +824,11 @@ def loadfile(env):
                                     state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
                                     state['sb_Qvector'][4,24*n+m] = np.nan*lorentz_factor
                                     state['Qvector'][5,24*n+m] = math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
+                                    # Effective monitor/exposure for ratio-of-sums binning.
+                                    # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
+                                    state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
                                     state['sb_Qvector'][5,24*n+m] = np.nan*lorentz_factor
+                                    state['sb_Qvector'][6,24*n+m] = np.nan
                             else:# Nanが選択されている
                                 pass
 
@@ -978,8 +991,8 @@ def loadfile(env):
                     kf = np.zeros((2, len(pt)*24))
                     #ki2 = np.zeros((2, len(pt)*24))
                     #Qのベクトルとスカラーの定義、あとここに強度の情報を加える。
-                    state['Qvector']=np.zeros((6, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error
-                    state['sb_Qvector']=np.zeros((6, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error
+                    state['Qvector']=np.zeros((7, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error, 6 effective monitor (internal)
+                    state['sb_Qvector']=np.zeros((7, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error, 6 effective monitor (internal)
                     #検出器の角度
                     d_angle=np.linspace(0, 46, 24)
                     A2 = np.zeros((1, 24))
@@ -1074,7 +1087,11 @@ def loadfile(env):
                                 state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
                                 state['sb_Qvector'][4,24*n+m] = np.sum(sb_data_e[index_BG,5+m])/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
                                 state['Qvector'][5,24*n+m] = math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
+                                # Effective monitor/exposure for ratio-of-sums binning.
+                                # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
+                                state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
                                 state['sb_Qvector'][5,24*n+m] = math.sqrt(np.sum(sb_data_e[index_BG,5+m]))/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
+                                state['sb_Qvector'][6,24*n+m] = np.sum(sb_data_e[index_BG,29])*fit_result[0,m]/fit_result[0,11]/lorentz_factor
 
                         else:# 対応するエネルギーが無かった場合
                             if sbtype2.get()==0:# Nanが選択されていない
@@ -1129,7 +1146,11 @@ def loadfile(env):
                                     state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
                                     state['sb_Qvector'][4,24*n+m] = np.nan*lorentz_factor
                                     state['Qvector'][5,24*n+m] = math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
+                                    # Effective monitor/exposure for ratio-of-sums binning.
+                                    # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
+                                    state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
                                     state['sb_Qvector'][5,24*n+m] = np.nan*lorentz_factor
+                                    state['sb_Qvector'][6,24*n+m] = np.nan
                             elif sbtype2.get()==1:# Nanoptionがon
                                 pass
 
@@ -1219,7 +1240,7 @@ def loadfile(env):
                 kf = np.zeros((2, len(pt)*24))
                 #ki2 = np.zeros((2, len(pt)*24))
                 #Qのベクトルとスカラーの定義、あとここに強度の情報を加える。
-                state['Qvector']=np.zeros((6, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error
+                state['Qvector']=np.zeros((7, len(pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy; 3 dE, 4 intensity, 5 error, 6 effective monitor (internal)
                 #検出器の角度
                 d_angle=np.linspace(0, 46, 24)
                 A2 = np.zeros((1, 24))
@@ -1266,6 +1287,9 @@ def loadfile(env):
                         lorentz_factor = 1
                         state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
                         state['Qvector'][5,24*n+m] = math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
+                        # Effective monitor/exposure for ratio-of-sums binning.
+                        # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
+                        state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
 
                 # 全てのデータを格納するボックスを立ち上げる。Qvectorのデータをどんどん連結していく。最初のファイルだけdataboxをQvectorにする。
                 if i == 0:
@@ -1352,7 +1376,7 @@ def loadfile(env):
                 sb_kf = np.zeros((2, len(sb_pt)*24))
                 #sb_ki2 = np.zeros((2, len(pt)*24))
                 #Qのベクトルとスカラーの定義、あとここに強度の情報を加える。
-                state['sb_Qvector']=np.zeros((6, len(sb_pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy
+                state['sb_Qvector']=np.zeros((7, len(sb_pt)*24))# single crystal: 0 alpha*|qU| [A^-1], 1 beta*|qV| [A^-1], 2 |Q|; powder: 0 Qx, 1 Qy
                 #検出器の角度
                 d_angle=np.linspace(0, 46, 24)
                 sb_A2 = np.zeros((1, 24))
@@ -1398,6 +1422,7 @@ def loadfile(env):
                         lorentz_factor = 1
                         state['sb_Qvector'][4,24*n+m] = sb_D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/sb_mcu[n]*lorentz_factor
                         state['sb_Qvector'][5,24*n+m] = math.sqrt(sb_D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/sb_mcu[n]*lorentz_factor
+                        state['sb_Qvector'][6,24*n+m] = sb_mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
                 # 全てのデータを格納するボックスを立ち上げる。sb_Qvectorのデータをどんどん連結していく。最初のファイルだけdataboxをsb_Qvectorにする。
                 if i == 0:
                     sb_Databox=state['sb_Qvector']
@@ -1420,15 +1445,21 @@ def loadfile(env):
     remainder_numbers_to_delete = n_delete
 
     # 対応する列を特定し、削除
-    # shared variables are stored in state # 0 Qx, 1 Qy, 2 Q, 3 エネルギートランスファー,　4 規格化強度,  5 規格化エラーバー
+    # Rows 0..5 keep the historical public databox layout.
+    # Row 6 is carried only internally and stored separately as monitorbox.
     columns_to_delete = [i for i in range(len(Databox[0,:])) if i % 24 in remainder_numbers_to_delete]
-    state['databox'] = np.delete(Databox, columns_to_delete, axis=1)
+    _masked_databox = np.delete(Databox, columns_to_delete, axis=1)
+    state['monitorbox'] = _masked_databox[6, :].copy()
+    state['databox'] = _masked_databox[:6, :]
 
     #バックグラウンドファイルがあった場合
     if len(state['sbfile_paths'])>0:
-        # shared variables are stored in state # 0 Qx, 1 Qy, 2 Q, 3 エネルギートランスファー,　4 規格化強度,  5 規格化エラーバー
         sb_columns_to_delete = [i for i in range(len(sb_Databox[0,:])) if i % 24 in remainder_numbers_to_delete]
-        state['sb_databox'] = np.delete(sb_Databox, sb_columns_to_delete, axis=1)
+        _masked_sb_databox = np.delete(sb_Databox, sb_columns_to_delete, axis=1)
+        state['sb_monitorbox'] = _masked_sb_databox[6, :].copy()
+        state['sb_databox'] = _masked_sb_databox[:6, :]
+    else:
+        state['sb_monitorbox'] = None
 
     # The display basis is explicitly right-handed, so the old post-hoc
     # Qx sign flip is no longer needed.  Keep sign=1 for compatibility.

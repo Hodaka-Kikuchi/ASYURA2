@@ -1,4 +1,5 @@
 from ...callback_runtime import *
+from asyura_core.data_processing import bin_single_crystal_data, combine_normalized_points
 
 def data_box(env):
     CSX = env.get('CSX')
@@ -184,11 +185,11 @@ def data_box(env):
                     state['pb2'].update()
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
                 state['I']=ssf1*state['I']
                 state['Ierr']=ssf1*state['Ierr']
 
-                state['sb_I'], state['sb_Ierr'] = bin_single_crystal_data(state['sb_databox'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['sb_I'], state['sb_Ierr'] = bin_single_crystal_data(state['sb_databox'], state['sb_monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
                 state['sb_I']=ssf2*state['sb_I']
                 state['sb_Ierr']=ssf2*state['sb_Ierr']
 
@@ -233,7 +234,9 @@ def data_box(env):
                     Ind_e = list(np.ravel(ind_e))
                     sb_Ind_e = list(np.ravel(sb_ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
+                    Monitorbox_kari = state['monitorbox'][Ind_e]
                     sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
+                    sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
                     for nx in range(state['nqu']-1):
                         for ny in range(state['nqv']-1):
                             #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
@@ -253,10 +256,20 @@ def data_box(env):
                             # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
 
                             # runtimeエラーが出ないように工夫
-                            state['I'][ne,ny,nx]=(np.nansum(Databox_kari[4,:][Ind_x]))/len(Ind_x)*ssf1
-                            state['Ierr'][ne,ny,nx]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_x],Databox_kari[5,:][Ind_x])))**(1/2))/len(Ind_x)*ssf1
-                            state['sb_I'][ne,ny,nx]=(np.nansum(sb_Databox_kari[4,:][sb_Ind_x]))/len(sb_Ind_x)*ssf2
-                            state['sb_Ierr'][ne,ny,nx]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_x],sb_Databox_kari[5,:][sb_Ind_x])))**(1/2))/len(sb_Ind_x)*ssf2
+                            _bin_i, _bin_ierr = combine_normalized_points(
+                                Databox_kari[4,:][Ind_x],
+                                Monitorbox_kari[Ind_x],
+                                state['N_mcu'],
+                            )
+                            state['I'][ne,ny,nx] = _bin_i*ssf1
+                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
+                            _sb_bin_i, _sb_bin_ierr = combine_normalized_points(
+                                sb_Databox_kari[4,:][sb_Ind_x],
+                                sb_Monitorbox_kari[sb_Ind_x],
+                                state['N_mcu'],
+                            )
+                            state['sb_I'][ne,ny,nx] = _sb_bin_i*ssf2
+                            state['sb_Ierr'][ne,ny,nx] = _sb_bin_ierr*abs(ssf2)
 
                     state['I'] = np.where(np.isfinite(state['I']), state['I'], np.nan)
                     state['Ierr'] = np.where(np.isfinite(state['Ierr']), state['Ierr'], np.nan)
@@ -301,7 +314,7 @@ def data_box(env):
                     state['pb2'].update()
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
                 state['I']=ssf1*state['I']
                 state['Ierr']=ssf1*state['Ierr']
 
@@ -324,6 +337,7 @@ def data_box(env):
 
                     Ind_e = list(np.ravel(ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
+                    Monitorbox_kari = state['monitorbox'][Ind_e]
                     for nx in range(state['nqu']-1):
                         for ny in range(state['nqv']-1):
                             #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
@@ -338,8 +352,13 @@ def data_box(env):
                             # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
 
                             # runtimeエラーが出ないように工夫
-                            state['I'][ne,ny,nx]=(np.nansum(Databox_kari[4,:][Ind_x]))/len(Ind_x)*ssf1
-                            state['Ierr'][ne,ny,nx]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_x],Databox_kari[5,:][Ind_x])))**(1/2))/len(Ind_x)*ssf1
+                            _bin_i, _bin_ierr = combine_normalized_points(
+                                Databox_kari[4,:][Ind_x],
+                                Monitorbox_kari[Ind_x],
+                                state['N_mcu'],
+                            )
+                            state['I'][ne,ny,nx] = _bin_i*ssf1
+                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
                             #sb_I[ne,ny,nx]=(np.nansum(sb_Databox_kari[4,:][sb_Ind_x]))/len(sb_Ind_x)*ssf2
                             #sb_Ierr[ne,ny,nx]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_x],sb_Databox_kari[5,:][sb_Ind_x])))**(1/2))/len(sb_Ind_x)*ssf2
 
@@ -368,8 +387,8 @@ def data_box(env):
                         state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
-                state['sb_I'], state['sb_Ierr'] = bin_single_crystal_data(state['sb_databox'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['sb_I'], state['sb_Ierr'] = bin_single_crystal_data(state['sb_databox'], state['sb_monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
 
                 for ne in range(len(state['energylist'])):
                     if state['energylist'][ne]>=0:
@@ -437,7 +456,9 @@ def data_box(env):
                     Ind_e = list(np.ravel(ind_e))
                     sb_Ind_e = list(np.ravel(sb_ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
+                    Monitorbox_kari = state['monitorbox'][Ind_e]
                     sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
+                    sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
                     for nx in range(state['nqu']-1):
                         for ny in range(state['nqv']-1):
                             #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
@@ -456,10 +477,20 @@ def data_box(env):
                             sb_Ind_x = list(np.ravel(sb_ind_x)[::1])
                             # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
                             # runtimeエラーが出ないように工夫
-                            state['I'][ne,ny,nx]=(np.nansum(Databox_kari[4,:][Ind_x]))/len(Ind_x)*ssf1
-                            state['Ierr'][ne,ny,nx]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_x],Databox_kari[5,:][Ind_x])))**(1/2))/len(Ind_x)*ssf1
-                            state['sb_I'][ne,ny,nx]=(np.nansum(sb_Databox_kari[4,:][sb_Ind_x]))/len(sb_Ind_x)*ssf2
-                            state['sb_Ierr'][ne,ny,nx]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_x],sb_Databox_kari[5,:][sb_Ind_x])))**(1/2))/len(sb_Ind_x)*ssf2
+                            _bin_i, _bin_ierr = combine_normalized_points(
+                                Databox_kari[4,:][Ind_x],
+                                Monitorbox_kari[Ind_x],
+                                state['N_mcu'],
+                            )
+                            state['I'][ne,ny,nx] = _bin_i*ssf1
+                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
+                            _sb_bin_i, _sb_bin_ierr = combine_normalized_points(
+                                sb_Databox_kari[4,:][sb_Ind_x],
+                                sb_Monitorbox_kari[sb_Ind_x],
+                                state['N_mcu'],
+                            )
+                            state['sb_I'][ne,ny,nx] = _sb_bin_i*ssf2
+                            state['sb_Ierr'][ne,ny,nx] = _sb_bin_ierr*abs(ssf2)
 
                     state['I'] = np.where(np.isfinite(state['I']), state['I'], np.nan)
                     state['Ierr'] = np.where(np.isfinite(state['Ierr']), state['Ierr'], np.nan)
@@ -499,7 +530,7 @@ def data_box(env):
                         state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
 
                 for ne in range(len(state['energylist'])):    
                     if state['energylist'][ne]>=0:
@@ -539,6 +570,7 @@ def data_box(env):
                         ssf2=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt3.get()))-1)
                     Ind_e = list(np.ravel(ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
+                    Monitorbox_kari = state['monitorbox'][Ind_e]
                     for nx in range(state['nqu']-1):
                         for ny in range(state['nqv']-1):
                             #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
@@ -553,8 +585,13 @@ def data_box(env):
                             # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
 
                             # runtimeエラーが出ないように工夫
-                            state['I'][ne,ny,nx]=(np.nansum(Databox_kari[4,:][Ind_x]))/len(Ind_x)*ssf1
-                            state['Ierr'][ne,ny,nx]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_x],Databox_kari[5,:][Ind_x])))**(1/2))/len(Ind_x)*ssf1
+                            _bin_i, _bin_ierr = combine_normalized_points(
+                                Databox_kari[4,:][Ind_x],
+                                Monitorbox_kari[Ind_x],
+                                state['N_mcu'],
+                            )
+                            state['I'][ne,ny,nx] = _bin_i*ssf1
+                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
                             #sb_I[ne,ny,nx]=(np.nansum(sb_Databox_kari[4,:][sb_Ind_x]))/len(sb_Ind_x)*ssf2
                             #sb_Ierr[ne,ny,nx]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_x],sb_Databox_kari[5,:][sb_Ind_x])))**(1/2))/len(sb_Ind_x)*ssf2
 

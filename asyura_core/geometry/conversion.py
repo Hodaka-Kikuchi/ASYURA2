@@ -8,6 +8,25 @@ from .tilt import _spice_relative_tilt_in_pdf
 DATA_C2_TO_OMEGA_SIGN = +1.0
 SIMU_C2_TO_OMEGA_SIGN = +1.0
 
+def _rotation_z_deg(angle_deg):
+    """
+    Right-handed rotation about +z.
+
+    Existing HODACA convention:
+        ki direction at C2=0 : +x
+        detector rotation    : -A2
+        sample rotation      : +C2
+    """
+    a = math.radians(float(angle_deg))
+    c = math.cos(a)
+    s = math.sin(a)
+
+    return np.array([
+        [c, -s, 0.0],
+        [s,  c, 0.0],
+        [0.0, 0.0, 1.0],
+    ], dtype=float)
+
 def _angles_to_hkl_and_uv(
     ei_meV,
     ef_meV,
