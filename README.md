@@ -1,0 +1,54 @@
+# ASYURA GUI hierarchy refactor
+
+The GUI is now organized by the structure visible in the application.
+
+```text
+asyura_gui/
+├─ app.py
+├─ base/
+│  ├─ dataset_information.py
+│  ├─ sample_information.py
+│  └─ analysishub/
+│     ├─ single_crystal.py
+│     ├─ powder.py
+│     ├─ scansim.py
+│     ├─ anglecalc.py
+│     └─ toolbox.py
+├─ callbacks/
+└─ ...
+```
+
+## Design
+
+- `app.py` creates the root window, builds the three top-level sections, initializes callbacks, menus, and the Tk main loop.
+- `base/dataset_information.py` owns **Dataset Information**.
+- `base/sample_information.py` owns **Sample Information**.
+- `base/analysishub/` owns **AnalysisHub**.
+- Each AnalysisHub tab is in a file with the same name as the visible tab.
+- The TAS-mode raw-data viewer is part of `single_crystal.py`, rather than being split into an unrelated tiny layout module.
+- The Toolbox Calculation panel is part of `toolbox.py`.
+- Toolbox Calculation keeps the requested order **E (ℏω), h, k, l**.
+
+The existing `asyura_core/` and `asyura_gui/callbacks/` separation is preserved.
+
+
+## SPICE reference data model
+
+The nine values belonging to a SPICE `peak1` record are now represented by
+`asyura_core.spice_models.SpiceReferencePeak`.
+
+The application-wide `state` is still a dictionary.  The difference is that
+related SPICE reference values are now stored as one typed object:
+
+```python
+state["spice_reference"].hkl
+state["spice_reference"].c2
+state["spice_reference"].a2
+state["spice_reference"].ry
+state["spice_reference"].rx
+state["spice_reference"].ei
+state["spice_reference"].ef
+```
+
+This avoids treating Peak1 as nine unrelated shared variables while preserving
+the existing dictionary-based application state.
