@@ -242,12 +242,11 @@ def pow_data_box(env):
                     state['energylist'][ne] = state['energylist'][ne]
                 else:
                     state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
-                if state['energylist'][ne]>=0:
-                    ssf1=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt2.get())))
-                    ssf2=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt3.get())))
-                else:
-                    ssf1=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt2.get()))-1)
-                    ssf2=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt3.get()))-1)
+                # Detailed-balance factor for chi'', the same as in single-crystal mode:
+                # one formula for both signs of E, so chi'' is odd in E (negative for E<0).
+                # (Previously E<0 used exp(-E/kT)-1 = -ssf, which flipped chi'' to positive.)
+                ssf1 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt2.get()))
+                ssf2 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt3.get()))
 
                 Ind_e = list(np.ravel(ind_e))
                 Databox_kari = state['databox'][:,Ind_e]
@@ -306,12 +305,11 @@ def pow_data_box(env):
                     state['energylist'][ne] = state['energylist'][ne]
                 else:
                     state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
-                if state['energylist'][ne]>=0:
-                    ssf1=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt2.get())))
-                    ssf2=(1-math.exp(-11.60497*(state['energylist'][ne])/float(sb_txt3.get())))
-                else:
-                    ssf1=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt2.get()))-1)
-                    ssf2=(math.exp(11.60497*-(state['energylist'][ne])/float(sb_txt3.get()))-1)
+                # Detailed-balance factor for chi'', the same as in single-crystal mode:
+                # one formula for both signs of E, so chi'' is odd in E (negative for E<0).
+                # (Previously E<0 used exp(-E/kT)-1 = -ssf, which flipped chi'' to positive.)
+                ssf1 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt2.get()))
+                ssf2 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt3.get()))
 
                 Ind_e = list(np.ravel(ind_e))
                 Databox_kari = state['databox'][:,Ind_e]

@@ -394,6 +394,51 @@ def test_powder_binning_is_ratio_of_sums():
     assert np.isclose(ci, ri) and np.isclose(ce, re)
 
 
+def _chi_env(state, mode_key, extra):
+    env = {"state": state, "CSX": _V(2), mode_key: _V(0), "sbtype2": _V(0),
+           "sb_txt1": _V("1"), "sb_txt2": _V("10"), "sb_txt3": _V("10"),
+           "fgt_txt1": _V("0.1"), "bgt_txt1": _V(""), "i": None}
+    env.update(extra)
+    return env
+
+
+def test_chi_detailed_balance_is_odd_in_energy_in_both_modes():
+    """chi'' = S * (1 - exp(-E/kT)) for both signs of E, in single-crystal and
+    powder mode alike (powder used to flip the sign for E < 0)."""
+    _, pow_data_box = _import_callbacks()
+    data_box, _ = _import_callbacks()
+    rng = np.random.default_rng(31)
+    energies = [-1.0, -0.5, 0.5, 1.0]
+    D, M, box = _points(rng, 6000, energies)
+    T = 10.0
+    factor = {e: 1 - np.exp(-11.60497 * e / T) for e in energies}
+
+    st = _base_state(box, M)
+    data_box(_chi_env(st, "hw_nan", {
+        "fgt_txt2": _V(""), "fgt_txt3": _V(""), "bgt_txt2": _V(""), "bgt_txt3": _V(""),
+        "txt16": _V("-0.9"), "txt17": _V("0.9"), "txt18": _V("0.6"),
+        "txt19": _V("-0.9"), "txt20": _V("0.9"), "txt21": _V("0.6"),
+        "txt22": _V(""), "txt23": _V(""), "txt24": _V("")}))
+    for ne, e in enumerate(st["map_energylist"]):
+        pick = box[3] == energies[ne]
+        assert np.isclose(e, energies[ne])
+        whole = np.nansum(st["I"][ne] * st["Imon"][ne]) / np.nansum(st["Imon"][ne])
+        assert np.isclose(whole, _ref(D[pick], M[pick])[0] * factor[energies[ne]])
+        assert (np.nanmax(st["I"][ne]) < 0) == (energies[ne] < 0)
+
+    st2 = _base_state(box, M)
+    pow_data_box(_chi_env(st2, "hwp_nan", {
+        "fgt_txt4": _V(""), "bgt_txt6": _V(""),
+        "txt01_p": _V("0.1"), "txt02_p": _V("1.3"), "txt03_p": _V("0.2"),
+        "txt04_p": _V(""), "txt05_p": _V(""), "txt06_p": _V("")}))
+    Q = st2["Q"]
+    for ne, e in enumerate(energies):
+        pick = (box[3] == e) & (Q[2] < box[2]) & (box[2] <= Q[3])
+        assert np.isclose(st2["Ipow"][ne, 2], _ref(D[pick], M[pick])[0] * factor[e])
+        assert np.isclose(st2["Ipow_err"][ne, 2], _ref(D[pick], M[pick])[1] * abs(factor[e]))
+        assert (st2["Ipow"][ne, 2] < 0) == (e < 0)
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
