@@ -210,7 +210,7 @@ def initialize_param(env):
     # ===================================================== 
     # Peak1
     #
-    # h, k, l, a2, c2, mu, nu, ei, ef
+    # h, k, l, a2, c2, lower arc (rx), upper arc (ry), ei, ef
     # ===================================================== 
 
     peak1_str = config["Data"]["Peak1"] 
@@ -224,7 +224,7 @@ def initialize_param(env):
     if len(peak1) < 9: 
         raise ValueError( 
             "Peak1 must contain "
-            "h,k,l,a2,c2,mu,nu,ei,ef."
+            "h,k,l,a2,c2,lower arc (rx),upper arc (ry),ei,ef."
         ) 
 
     ref_h  = peak1[0] 
@@ -232,11 +232,13 @@ def initialize_param(env):
     ref_l  = peak1[2] 
     ref_a2 = peak1[3] 
     ref_c2 = peak1[4] 
-    # SPICE Peak1 order: h, k, l, a2, c2, mu, nu, ei, ef
-    # (mu = lower arc = ry motor, nu = upper arc = rx motor; cf. [AngleMode]
-    # LowerArc/UpperArc in the same ini).  These two were swapped before.
-    ref_ry = peak1[5] 
-    ref_rx = peak1[6] 
+    # SPICE Peak1 order: h, k, l, a2, c2, lower arc, upper arc, ei, ef
+    # (the same values appear as [AngleMode] LowerArc / UpperArc in the ini).
+    # On HODACA the lower arc is the rx motor and the upper arc is the ry
+    # motor.  NB: in the tilt model rx corresponds to nu and ry to mu, so the
+    # Peak1 columns are NOT in (mu, nu) order.
+    ref_rx = peak1[5] 
+    ref_ry = peak1[6] 
     ref_ei = peak1[7] 
     ref_ef = peak1[8] 
 
