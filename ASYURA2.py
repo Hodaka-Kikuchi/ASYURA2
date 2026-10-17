@@ -12,3 +12,4 @@ if __name__ == "__main__":
 
 # EXE化コマンド
 # python -m PyInstaller --clean --noconsole --onefile --icon "ASYURA_logo.ico" --add-data "ASYURA_logo.ico;." "ASYURA2.py"
+# python -m PyInstaller --clean --noconsole --onedir --noupx --icon "ASYURA_logo.ico" --add-data "ASYURA_logo.ico;." "ASYURA2.py"
