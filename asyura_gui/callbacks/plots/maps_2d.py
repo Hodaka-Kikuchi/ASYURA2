@@ -1043,14 +1043,8 @@ def constEmap(env):
 
         for nn in range(len(state['QV'])-1):
             for mm in range(len(state['QU'])-1):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][Ind_e,nn,mm])))))
-                N_nanind = list(np.ravel(n_nanind)[::1])
-                if N_nanind:
-                    state['I_ce'][nn,mm] = np.nansum(state['I'][Ind_e,nn,mm])/(len(N_nanind))
-                    state['Ierr_ce'][nn,mm] = ((np.nansum(np.multiply(state['Ierr'][Ind_e,nn,mm],state['Ierr'][Ind_e,nn,mm])))**(1/2))/(len(N_nanind))
-                else:
-                    state['I_ce'][nn,mm] = np.nan
-                    state['Ierr_ce'][nn,mm] = np.nan
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_ce'][nn,mm], state['Ierr_ce'][nn,mm] = combine_state_cells(state, lambda a: a[Ind_e,nn,mm])
 
         #図を出力する
         #intensityの範囲
@@ -1231,14 +1225,8 @@ def constQmap_V(env):
         state['Ierr_hwV']=np.zeros((len(state['energylist']),len(state['QV'])-1))
         for ll in range(len(state['energylist'])):
             for nn in range(len(state['QV'])-1):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][ll,nn,Ind_cQV])))))
-                N_nanind = list(np.ravel(n_nanind)[::1])
-                if N_nanind:
-                    state['I_hwV'][ll,nn] = np.nansum(state['I'][ll,nn,Ind_cQV])/(len(N_nanind))     
-                    state['Ierr_hwV'][ll,nn] = ((np.nansum(np.multiply(state['Ierr'][ll,nn,Ind_cQV],state['Ierr'][ll,nn,Ind_cQV])))**(1/2))/(len(N_nanind))
-                else:
-                    state['I_hwV'][ll,nn] = np.nan
-                    state['Ierr_hwV'][ll,nn] = np.nan
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_hwV'][ll,nn], state['Ierr_hwV'][ll,nn] = combine_state_cells(state, lambda a: a[ll,nn,Ind_cQV])
 
         # 図のラベルを作成
         if float(txt12.get())==0:
@@ -1550,14 +1538,8 @@ def constQmap_U(env):
         state['Ierr_hwU']=np.zeros((len(state['energylist']),len(state['QU'])-1))
         for ll in range(len(state['energylist'])):
             for mm in range(len(state['QU'])-1):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][ll,Ind_cQU,mm])))))
-                N_nanind = list(np.ravel(n_nanind)[::1])
-                if N_nanind:
-                    state['I_hwU'][ll,mm] = np.nansum(state['I'][ll,Ind_cQU,mm])/(len(N_nanind))   
-                    state['Ierr_hwU'][ll,mm] = ((np.nansum(np.multiply(state['Ierr'][ll,Ind_cQU,mm],state['Ierr'][ll,Ind_cQU,mm])))**(1/2))/(len(N_nanind))
-                else:
-                    state['I_hwU'][ll,mm] = np.nan
-                    state['Ierr_hwU'][ll,mm] = np.nan
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_hwU'][ll,mm], state['Ierr_hwU'][ll,mm] = combine_state_cells(state, lambda a: a[ll,Ind_cQU,mm])
 
         # 図のラベルを作成
         if float(txt9.get())==0:

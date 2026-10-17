@@ -37,16 +37,13 @@ def disp3D(env):
     qx = state['databox'][0, :]
     qy = state['databox'][1, :]
     hw = state['databox'][3, :]  # ℏω（Z軸）
-    try:
-        # sb_databox が存在し、サイズも一致していれば差分で強度を定義
-        if state['sb_databox'].shape == state['databox'].shape:
-            intensity = state['databox'][4, :] - state['sb_databox'][4, :]
-            intensity_err = np.sqrt(state['databox'][5, :]**2 + state['sb_databox'][5, :]**2)
-        else:
-            intensity = state['databox'][4, :]
-            intensity_err = state['databox'][5, :]
-    except NameError:
-        # sb_databox が定義されていない場合
+    # Subtract the background only when one was loaded with this data set
+    # and it is point-by-point aligned with the foreground.
+    _sb = state.get('sb_databox')
+    if _sb is not None and _sb.shape == state['databox'].shape:
+        intensity = state['databox'][4, :] - _sb[4, :]
+        intensity_err = np.sqrt(state['databox'][5, :]**2 + _sb[5, :]**2)
+    else:
         intensity = state['databox'][4, :]
         intensity_err = state['databox'][5, :]
 
@@ -263,16 +260,13 @@ def scatter_2d_cE(env):
     qx = state['databox'][0, :]
     qy = state['databox'][1, :]
     hw = state['databox'][3, :]  # ℏω（Z軸）
-    try:
-        # sb_databox が存在し、サイズも一致していれば差分で強度を定義
-        if state['sb_databox'].shape == state['databox'].shape:
-            intensity = state['databox'][4, :] - state['sb_databox'][4, :]
-            intensity_err = np.sqrt(state['databox'][5, :]**2 + state['sb_databox'][5, :]**2)
-        else:
-            intensity = state['databox'][4, :]
-            intensity_err = state['databox'][5, :]
-    except NameError:
-        # sb_databox が定義されていない場合
+    # Subtract the background only when one was loaded with this data set
+    # and it is point-by-point aligned with the foreground.
+    _sb = state.get('sb_databox')
+    if _sb is not None and _sb.shape == state['databox'].shape:
+        intensity = state['databox'][4, :] - _sb[4, :]
+        intensity_err = np.sqrt(state['databox'][5, :]**2 + _sb[5, :]**2)
+    else:
         intensity = state['databox'][4, :]
         intensity_err = state['databox'][5, :]
 
@@ -551,16 +545,13 @@ def scatter_2d_cU(env):
     qx = state['databox'][0, :]
     qy = state['databox'][1, :]
     hw = state['databox'][3, :]  # ℏω（Z軸）
-    try:
-        # sb_databox が存在し、サイズも一致していれば差分で強度を定義
-        if state['sb_databox'].shape == state['databox'].shape:
-            intensity = state['databox'][4, :] - state['sb_databox'][4, :]
-            intensity_err = np.sqrt(state['databox'][5, :]**2 + state['sb_databox'][5, :]**2)
-        else:
-            intensity = state['databox'][4, :]
-            intensity_err = state['databox'][5, :]
-    except NameError:
-        # sb_databox が定義されていない場合
+    # Subtract the background only when one was loaded with this data set
+    # and it is point-by-point aligned with the foreground.
+    _sb = state.get('sb_databox')
+    if _sb is not None and _sb.shape == state['databox'].shape:
+        intensity = state['databox'][4, :] - _sb[4, :]
+        intensity_err = np.sqrt(state['databox'][5, :]**2 + _sb[5, :]**2)
+    else:
         intensity = state['databox'][4, :]
         intensity_err = state['databox'][5, :]
 
@@ -963,16 +954,13 @@ def scatter_2d_cV(env):
     qx = state['databox'][0, :]
     qy = state['databox'][1, :]
     hw = state['databox'][3, :]  # ℏω（Z軸）
-    try:
-        # sb_databox が存在し、サイズも一致していれば差分で強度を定義
-        if state['sb_databox'].shape == state['databox'].shape:
-            intensity = state['databox'][4, :] - state['sb_databox'][4, :]
-            intensity_err = np.sqrt(state['databox'][5, :]**2 + state['sb_databox'][5, :]**2)
-        else:
-            intensity = state['databox'][4, :]
-            intensity_err = state['databox'][5, :]
-    except NameError:
-        # sb_databox が定義されていない場合
+    # Subtract the background only when one was loaded with this data set
+    # and it is point-by-point aligned with the foreground.
+    _sb = state.get('sb_databox')
+    if _sb is not None and _sb.shape == state['databox'].shape:
+        intensity = state['databox'][4, :] - _sb[4, :]
+        intensity_err = np.sqrt(state['databox'][5, :]**2 + _sb[5, :]**2)
+    else:
         intensity = state['databox'][4, :]
         intensity_err = state['databox'][5, :]
 

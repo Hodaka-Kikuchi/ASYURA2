@@ -11,6 +11,8 @@ def save_hw_HKL(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成
     header0 = ['hw (meV)']
     header1 = ['HKL (r.l.u.)']
@@ -37,6 +39,8 @@ def save_hkl_HKL(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成
     header0 = ['hw (meV)']
     header1 = ['HKL (r.l.u.)']
@@ -63,6 +67,8 @@ def save_I_HKL(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     # ヘッダーの作成
     header = ['hw (meV)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', 
               f'{state['Vlabel']} (r.l.u.)', f'{state['Vlabel']} (r.l.u.)', f'{state['Vlabel']} (r.l.u.)', 
@@ -91,6 +97,8 @@ def save_I_hw(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     # ヘッダーの作成
     header = ['hw (meV)', 'HKL (r.l.u.)', 'HKL (r.l.u.)', 'HKL (r.l.u.)', 
               'hkl (r.l.u.)', 'hkl (r.l.u.)', 'hkl (r.l.u.)', 

@@ -1,4 +1,5 @@
 from ...callback_runtime import *
+from ...figure_guard import base_figure_open, require_state
 
 from .display_basis import prepare_simu_reciprocal_display
 
@@ -152,7 +153,7 @@ def add_simu_pow(env):
     txt_s5_1 = env.get('txt_s5_1')
     txt_s6_1 = env.get('txt_s6_1')
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['num_fig_simu_pow'])==True:
+    if base_figure_open(state, 'num_fig_simu_pow', 'simu (powder)'):
         # shared variables are stored in state
         state['add_psf'] = 1 + state['add_psf']
 

@@ -51,7 +51,10 @@ def vfile_select(env):
 def vclear(env):
     vListbox = env.get('vListbox')
     vListbox.delete(0, tk.END)
-    vfile_path = []
+    # Clear the stored path too; previously only a local variable was reset,
+    # so the old vanadium file was still used by the next load.
+    state = env.get('state')
+    state['vfile_path'] = ()
 
 
 def sbfile_select(env):

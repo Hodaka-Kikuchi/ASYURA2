@@ -1,4 +1,5 @@
 from ...callback_runtime import *
+from ...figure_guard import base_figure_open, require_state
 
 def show_1D_EvsI(env):
     axistypep = env.get('axistypep')
@@ -25,15 +26,9 @@ def show_1D_EvsI(env):
     # ないリストを参照すると、次のグラフ表示の時、空白のグラフができる。これを回避するためにリストが空の時はグラフ表示しない分岐を作成
     if len(Pow1D_Q)!=0:
         for ll in range(len(state['energylist'])):
-            n_nanind = (list(zip(*np.where(~np.isnan(state['Ipow'][ll,Pow1D_Q])))))
-            N_nanind = list(np.ravel(n_nanind)[::1])
-            if N_nanind:
-                #I_1DU[mm]=np.sum(I_ce[ind_cE1dV,mm][~np.isnan(I_ce[ind_cE1dV,ll])])/(len(I_ce[n_nanind[0]]))
-                state['Ipow_1dei'][ll] = (np.nansum(state['Ipow'][ll,Pow1D_Q]))/(len(N_nanind))
-                state['Ipowerr_1dei'][ll] = ((np.nansum(np.multiply(state['Ipow_err'][ll,Pow1D_Q],state['Ipow_err'][ll,Pow1D_Q])))**(1/2))/(len(N_nanind))
-            else:
-                state['Ipow_1dei'][ll] = np.nan
-                state['Ipowerr_1dei'][ll] = np.nan
+            # Monitor-weighted: equals N_mcu*sum(D)/sum(M_eff) over the selected cells
+            state['Ipow_1dei'][ll], state['Ipowerr_1dei'][ll] = combine_state_cells(
+                state, lambda a: a[ll,Pow1D_Q], 'Ipow')
 
         # 例外処理
         if len(list(zip(*np.where(~np.isnan(state['Ipow_1dei'])))))!=0:
@@ -138,7 +133,7 @@ def btn_click_1DPE(env):
     txt11_p = env.get('txt11_p')
     txt12_p = env.get('txt12_p')
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['oneDPE'])==True:
+    if base_figure_open(state, 'oneDPE', 'ℏω vs I (powder)'):
         #既に記入しているUとVの範囲を読み出し。
         Qc=float(txt11_p.get())
         Qpm=float(txt12_p.get())
@@ -154,15 +149,9 @@ def btn_click_1DPE(env):
         # ないリストを参照すると、次のグラフ表示の時、空白のグラフができる。これを回避するためにリストが空の時はグラフ表示しない分岐を作成
         if len(Pow1D_Q)!=0:
             for ll in range(len(state['energylist'])):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['Ipow'][ll,Pow1D_Q])))))
-                N_nanind = list(np.ravel(n_nanind)[::1])
-                if N_nanind:
-                    #I_1DU[mm]=np.sum(I_ce[ind_cE1dV,mm][~np.isnan(I_ce[ind_cE1dV,ll])])/(len(I_ce[n_nanind[0]]))
-                    state['Ipow_1dei'][ll] = (np.nansum(state['Ipow'][ll,Pow1D_Q]))/(len(N_nanind))
-                    state['Ipowerr_1dei'][ll] = ((np.nansum(np.multiply(state['Ipow_err'][ll,Pow1D_Q],state['Ipow_err'][ll,Pow1D_Q])))**(1/2))/(len(N_nanind))
-                else:
-                    state['Ipow_1dei'][ll] = np.nan
-                    state['Ipowerr_1dei'][ll] = np.nan
+                # Monitor-weighted: equals N_mcu*sum(D)/sum(M_eff) over the selected cells
+                state['Ipow_1dei'][ll], state['Ipowerr_1dei'][ll] = combine_state_cells(
+                    state, lambda a: a[ll,Pow1D_Q], 'Ipow')
 
             # 例外処理
             if len(list(zip(*np.where(~np.isnan(state['Ipow_1dei'])))))!=0:         
@@ -172,8 +161,6 @@ def btn_click_1DPE(env):
                 at=axistypep.get()
                 if at==1:
                     plt.yscale('log')
-                    if ylim_min==0:
-                        ylim_min=np.nanmin(state['Ipow_1dei'])-np.nanmax(state['Ipowerr_1dei'])
                 # shared variables are stored in state
                 state['elist'] = state['energylist']
                 state['qlist'] = [Qc-Qpm,Qc+Qpm]
@@ -211,15 +198,9 @@ def show_1D_QvsI(env):
     # ないリストを参照すると、次のグラフ表示の時、空白のグラフができる。これを回避するためにリストが空の時はグラフ表示しない分岐を作成
     if len(Pow1D_E)!=0:
         for qq in range(len(state['Q2'])):
-            n_nanind = (list(zip(*np.where(~np.isnan(state['Ipow'][Pow1D_E,qq])))))
-            N_nanind = list(np.ravel(n_nanind)[::1])
-            if N_nanind:
-                #I_1DU[mm]=np.sum(I_ce[ind_cE1dV,mm][~np.isnan(I_ce[ind_cE1dV,ll])])/(len(I_ce[n_nanind[0]]))
-                state['Ipow_1dqi'][qq] = (np.nansum(state['Ipow'][Pow1D_E,qq]))/(len(N_nanind))
-                state['Ipowerr_1dqi'][qq] = ((np.nansum(np.multiply(state['Ipow_err'][Pow1D_E,qq],state['Ipow_err'][Pow1D_E,qq])))**(1/2))/(len(N_nanind))
-            else:
-                state['Ipow_1dqi'][qq] = np.nan
-                state['Ipowerr_1dqi'][qq] = np.nan
+            # Monitor-weighted: equals N_mcu*sum(D)/sum(M_eff) over the selected cells
+            state['Ipow_1dqi'][qq], state['Ipowerr_1dqi'][qq] = combine_state_cells(
+                state, lambda a: a[Pow1D_E,qq], 'Ipow')
 
         # 例外処理
         if len(list(zip(*np.where(~np.isnan(state['Ipow_1dqi'])))))!=0:
@@ -327,7 +308,7 @@ def btn_click_1DPQ(env):
     txt13_p = env.get('txt13_p')
     txt14_p = env.get('txt14_p')
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['oneDPQ'])==True:
+    if base_figure_open(state, 'oneDPQ', 'Q vs I (powder)'):
         #既に記入しているUとVの範囲を読み出し。
         Ec=float(txt13_p.get())
         Epm=float(txt14_p.get())
@@ -347,15 +328,9 @@ def btn_click_1DPQ(env):
         # ないリストを参照すると、次のグラフ表示の時、空白のグラフができる。これを回避するためにリストが空の時はグラフ表示しない分岐を作成
         if len(Pow1D_E)!=0:
             for qq in range(len(state['Q2'])):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['Ipow'][Pow1D_E,qq])))))
-                N_nanind = list(np.ravel(n_nanind)[::1])
-                if N_nanind:
-                    #I_1DU[mm]=np.sum(I_ce[ind_cE1dV,mm][~np.isnan(I_ce[ind_cE1dV,ll])])/(len(I_ce[n_nanind[0]]))
-                    state['Ipow_1dqi'][qq] = (np.nansum(state['Ipow'][Pow1D_E,qq]))/(len(N_nanind))
-                    state['Ipowerr_1dqi'][qq] = ((np.nansum(np.multiply(state['Ipow_err'][Pow1D_E,qq],state['Ipow_err'][Pow1D_E,qq])))**(1/2))/(len(N_nanind))
-                else:
-                    state['Ipow_1dqi'][qq] = np.nan
-                    state['Ipowerr_1dqi'][qq] = np.nan
+                # Monitor-weighted: equals N_mcu*sum(D)/sum(M_eff) over the selected cells
+                state['Ipow_1dqi'][qq], state['Ipowerr_1dqi'][qq] = combine_state_cells(
+                    state, lambda a: a[Pow1D_E,qq], 'Ipow')
 
             #例外処理
             if len(list(zip(*np.where(~np.isnan(state['Ipow_1dqi'])))))!=0:
@@ -365,8 +340,6 @@ def btn_click_1DPQ(env):
                 at=axistypep.get()
                 if at==1:
                     plt.yscale('log')
-                    if ylim_min==0:
-                        ylim_min=np.nanmin(state['Ipow_1dqi'])-np.nanmax(state['Ipowerr_1dqi'])
                 # shared variables are stored in state
                 state['elist2'] = [Ec-Epm,Ec+Epm]
                 state['qlist2'] = state['Q2']

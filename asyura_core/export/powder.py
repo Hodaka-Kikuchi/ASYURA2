@@ -11,6 +11,8 @@ def save_1D_hwI_pow(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
         
     # ヘッダーの作成
     header = ['hw (meV)','q (A^-1)','Intensity (a.u.)','Error (a.u.)']
@@ -34,6 +36,8 @@ def save_1D_qI_pow(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
    
     # ヘッダーの作成
     header = ['hw (meV)','q (A^-1)','Intensity (a.u.)','Error (a.u.)']

@@ -2,7 +2,7 @@
 # ASYURA
 # UB matrixによるoffsetの自動入力
 # 右上にバージョン情報を表示
-__version__ = '4.0.0'
+__version__ = '4.1.0'
 
 # cd C:\Users\h34\Documents\Python\ASYURA
 """
@@ -306,6 +306,11 @@ def run_app():
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", on_closing)  # ウィンドウが閉じられるときの振る舞いを指定
+
+    # Errors inside button callbacks are shown in a dialog (and still printed
+    # to the console) instead of making the button look dead.
+    from .error_dialog import install as _install_error_dialog
+    _install_error_dialog(root)
 
     # gif画像を次のコマンドで文字列に変換(gifじゃないとダメ)
     # certutil -encode asyura_logo_w_trans.gif text3.txt

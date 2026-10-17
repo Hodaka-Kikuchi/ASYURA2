@@ -1,5 +1,5 @@
 from ...callback_runtime import *
-from asyura_core.data_processing import bin_single_crystal_data, combine_normalized_points
+from asyura_core.data_processing import bin_single_crystal_data, combine_normalized_points, group_energy_transfers, window_bin_2d
 
 def data_box(env):
     CSX = env.get('CSX')
@@ -45,25 +45,8 @@ def data_box(env):
         dEfg = 0 # energy方向のsmoothing
         dEbg = 0 # energy方向のsmoothing
         # もとのコード
-        state['energylist']=(list(set(state['databox'][3,:])))
-        # さらにソートする(元のリストを書き換え)
-        state['energylist'].sort()
         # さらにエネルギートランスファーのトレランスを考慮して±E_TmeV以内は同じ数値にする。
-        Energylist = [state['energylist'][0]]  # 初めて値を代入
-
-        for i in range(1, (len(state['energylist'])-1)):
-            if Energylist[-1] <= state['energylist'][i] and state['energylist'][i] < Energylist[-1] + 2*E_T:
-                pass
-            else:
-                Energylist.append(state['energylist'][i+1])
-        # 最後の範囲が記録されないので最後に付け足す。
-        if Energylist[-1] < state['energylist'][-1] + 2*E_T:
-            pass
-        else:
-            Energylist.append(state['energylist'][-1])
-        # energylistを再構成
-        state['energylist']=list(set(Energylist))
-        state['energylist'].sort()
+        state['energylist'] = group_energy_transfers(state['databox'][3,:], E_T)
 
     if hw_nan.get()==1:# hw cellにℏが入っている場合
         Ebin = float(txt24.get())
@@ -147,6 +130,10 @@ def data_box(env):
     state['Ierr']=np.zeros((len(state['energylist']),state['nqv']-1,state['nqu']-1))
     state['sb_I']=np.zeros((len(state['energylist']),state['nqv']-1,state['nqu']-1))
     state['sb_Ierr']=np.zeros((len(state['energylist']),state['nqv']-1,state['nqu']-1))
+    # Summed effective (sensitivity-normalized) foreground monitor of each cell.
+    # Used as the weight when cells are combined into cuts, so that cuts are
+    # also "sum of counts / sum of monitor".
+    state['Imon']=np.zeros((len(state['energylist']),state['nqv']-1,state['nqu']-1))
     # shared variables are stored in state
     state['QU2']=np.zeros((state['nqu']-1))
     state['QV2']=np.zeros((state['nqv']-1))
@@ -168,7 +155,7 @@ def data_box(env):
         ssf1=1
         ssf2=float(sb_txt1.get())
         #バックグラウンドファイルがあった場合。
-        if len(state['sbfile_paths'])>0:
+        if state.get('sb_databox') is not None:
             if dEfg==0 and dU==0 and dV==0 and dEbg==0 and sb_dU==0 and sb_dV==0:#smoothing処理をしない場合
                 for ne in range(len(state['energylist'])):
                     # 条件を満たすインデックスを取得。まずエネルギーが一致している部分を取り出す。このときエネルギートランスファートレランスを考慮する。
@@ -185,7 +172,7 @@ def data_box(env):
                     state['pb2'].update()
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'], state['Imon'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'], return_monitor=True)
                 state['I']=ssf1*state['I']
                 state['Ierr']=ssf1*state['Ierr']
 
@@ -237,39 +224,23 @@ def data_box(env):
                     Monitorbox_kari = state['monitorbox'][Ind_e]
                     sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
                     sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
-                    for nx in range(state['nqu']-1):
-                        for ny in range(state['nqv']-1):
-                            #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                            #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                            # 条件を満たすインデックスを取得。
-                            ind_x = None
-                            Ind_x = None
-                            sb_ind_x = None
-                            sb_Ind_x = None
-                            ind_x = (list(zip(*np.where(( state['QU'][nx]-dU < Databox_kari[0,:]/state['NU1'] ) & (Databox_kari[0,:]/state['NU1'] <= state['QU'][nx+1]+dU) & ( state['QV'][ny]-dV < Databox_kari[1,:]/state['NV1'] ) & ( Databox_kari[1,:]/state['NV1'] <= state['QV'][ny+1]+dV )))))
-                            # バックグラウンドは別にsmoothingをかけられる。
-                            sb_ind_x = (list(zip(*np.where(( state['QU'][nx]-sb_dU < sb_Databox_kari[0,:]/state['NU1'] ) & (sb_Databox_kari[0,:]/state['NU1'] <= state['QU'][nx+1]+sb_dU) & ( state['QV'][ny]-sb_dV < sb_Databox_kari[1,:]/state['NV1'] ) & ( sb_Databox_kari[1,:]/state['NV1'] <= state['QV'][ny+1]+sb_dV )))))
-                            # ind_xが何もない場合はnan値として出力されるから良し
-                            # ind_xを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                            Ind_x = list(np.ravel(ind_x)[::1])
-                            sb_Ind_x = list(np.ravel(sb_ind_x)[::1])
-                            # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
-
-                            # runtimeエラーが出ないように工夫
-                            _bin_i, _bin_ierr = combine_normalized_points(
-                                Databox_kari[4,:][Ind_x],
-                                Monitorbox_kari[Ind_x],
-                                state['N_mcu'],
-                            )
-                            state['I'][ne,ny,nx] = _bin_i*ssf1
-                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
-                            _sb_bin_i, _sb_bin_ierr = combine_normalized_points(
-                                sb_Databox_kari[4,:][sb_Ind_x],
-                                sb_Monitorbox_kari[sb_Ind_x],
-                                state['N_mcu'],
-                            )
-                            state['sb_I'][ne,ny,nx] = _sb_bin_i*ssf2
-                            state['sb_Ierr'][ne,ny,nx] = _sb_bin_ierr*abs(ssf2)
+                    # Windowed (smoothed) binning: every window QU[nx]-dU < U <= QU[nx+1]+dU,
+                    # QV[ny]-dV < V <= QV[ny+1]+dV is read from a summed-area table instead of
+                    # searching all points for every (nx, ny).  Same points, same statistics.
+                    _bin_i, _bin_ierr, _bin_mon = window_bin_2d(
+                        Databox_kari[4,:], Monitorbox_kari, state['N_mcu'],
+                        Databox_kari[0,:]/state['NU1'], Databox_kari[1,:]/state['NV1'],
+                        state['QU'][:-1]-dU, state['QU'][1:]+dU, state['QV'][:-1]-dV, state['QV'][1:]+dV)
+                    state['I'][ne] = _bin_i*ssf1
+                    state['Ierr'][ne] = _bin_ierr*abs(ssf1)
+                    state['Imon'][ne] = _bin_mon
+                    # background may use its own smoothing width
+                    _sb_bin_i, _sb_bin_ierr, _ = window_bin_2d(
+                        sb_Databox_kari[4,:], sb_Monitorbox_kari, state['N_mcu'],
+                        sb_Databox_kari[0,:]/state['NU1'], sb_Databox_kari[1,:]/state['NV1'],
+                        state['QU'][:-1]-sb_dU, state['QU'][1:]+sb_dU, state['QV'][:-1]-sb_dV, state['QV'][1:]+sb_dV)
+                    state['sb_I'][ne] = _sb_bin_i*ssf2
+                    state['sb_Ierr'][ne] = _sb_bin_ierr*abs(ssf2)
 
                     state['I'] = np.where(np.isfinite(state['I']), state['I'], np.nan)
                     state['Ierr'] = np.where(np.isfinite(state['Ierr']), state['Ierr'], np.nan)
@@ -314,7 +285,7 @@ def data_box(env):
                     state['pb2'].update()
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'], state['Imon'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'], return_monitor=True)
                 state['I']=ssf1*state['I']
                 state['Ierr']=ssf1*state['Ierr']
 
@@ -338,29 +309,16 @@ def data_box(env):
                     Ind_e = list(np.ravel(ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
                     Monitorbox_kari = state['monitorbox'][Ind_e]
-                    for nx in range(state['nqu']-1):
-                        for ny in range(state['nqv']-1):
-                            #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                            #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                            # 条件を満たすインデックスを取得。
-                            ind_x = None
-                            Ind_x = None
-                            ind_x = (list(zip(*np.where(( state['QU'][nx]-dU < Databox_kari[0,:]/state['NU1'] ) & (Databox_kari[0,:]/state['NU1'] <= state['QU'][nx+1]+dU) & ( state['QV'][ny]-dV < Databox_kari[1,:]/state['NV1'] ) & ( Databox_kari[1,:]/state['NV1'] <= state['QV'][ny+1]+dV )))))
-                            # ind_xが何もない場合はnan値として出力されるから良し
-                            # ind_xを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                            Ind_x = list(np.ravel(ind_x)[::1])
-                            # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
-
-                            # runtimeエラーが出ないように工夫
-                            _bin_i, _bin_ierr = combine_normalized_points(
-                                Databox_kari[4,:][Ind_x],
-                                Monitorbox_kari[Ind_x],
-                                state['N_mcu'],
-                            )
-                            state['I'][ne,ny,nx] = _bin_i*ssf1
-                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
-                            #sb_I[ne,ny,nx]=(np.nansum(sb_Databox_kari[4,:][sb_Ind_x]))/len(sb_Ind_x)*ssf2
-                            #sb_Ierr[ne,ny,nx]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_x],sb_Databox_kari[5,:][sb_Ind_x])))**(1/2))/len(sb_Ind_x)*ssf2
+                    # Windowed (smoothed) binning: every window QU[nx]-dU < U <= QU[nx+1]+dU,
+                    # QV[ny]-dV < V <= QV[ny+1]+dV is read from a summed-area table instead of
+                    # searching all points for every (nx, ny).  Same points, same statistics.
+                    _bin_i, _bin_ierr, _bin_mon = window_bin_2d(
+                        Databox_kari[4,:], Monitorbox_kari, state['N_mcu'],
+                        Databox_kari[0,:]/state['NU1'], Databox_kari[1,:]/state['NV1'],
+                        state['QU'][:-1]-dU, state['QU'][1:]+dU, state['QV'][:-1]-dV, state['QV'][1:]+dV)
+                    state['I'][ne] = _bin_i*ssf1
+                    state['Ierr'][ne] = _bin_ierr*abs(ssf1)
+                    state['Imon'][ne] = _bin_mon
 
                     #I = np.where(np.isfinite(I), I, np.nan)
                     #Ierr = np.where(np.isfinite(Ierr), Ierr, np.nan)
@@ -374,7 +332,7 @@ def data_box(env):
 
 
     elif CSX.get()==2:# χ(q,w), kf/ki
-        if len(state['sbfile_paths'])>0:#バックグラウンドファイルがあった場合。
+        if state.get('sb_databox') is not None:#バックグラウンドファイルがあった場合。
             # smoothing処理をしない場合
             if dEfg==0 and dU==0 and dV==0 and dEbg==0 and sb_dU==0 and sb_dV==0:#smoothing処理をしない場合
                 for ne in range(len(state['energylist'])):
@@ -387,7 +345,7 @@ def data_box(env):
                         state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'], state['Imon'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'], return_monitor=True)
                 state['sb_I'], state['sb_Ierr'] = bin_single_crystal_data(state['sb_databox'], state['sb_monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
 
                 for ne in range(len(state['energylist'])):
@@ -460,38 +418,23 @@ def data_box(env):
                     Monitorbox_kari = state['monitorbox'][Ind_e]
                     sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
                     sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
-                    for nx in range(state['nqu']-1):
-                        for ny in range(state['nqv']-1):
-                            #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                            #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                            # 条件を満たすインデックスを取得。
-                            ind_x = None
-                            Ind_x = None
-                            sb_ind_x = None
-                            sb_Ind_x = None
-                            ind_x = (list(zip(*np.where(( state['QU'][nx]-dU < Databox_kari[0,:]/state['NU1'] ) & (Databox_kari[0,:]/state['NU1'] <= state['QU'][nx+1]+dU) & ( state['QV'][ny]-dV < Databox_kari[1,:]/state['NV1'] ) & ( Databox_kari[1,:]/state['NV1'] <= state['QV'][ny+1]+dV )))))
-                            # バックグラウンドは別にsmoothingをかけられる。
-                            sb_ind_x = (list(zip(*np.where(( state['QU'][nx]-sb_dU < sb_Databox_kari[0,:]/state['NU1'] ) & (sb_Databox_kari[0,:]/state['NU1'] <= state['QU'][nx+1]+sb_dU) & ( state['QV'][ny]-sb_dV < sb_Databox_kari[1,:]/state['NV1'] ) & ( sb_Databox_kari[1,:]/state['NV1'] <= state['QV'][ny+1]+sb_dV )))))
-                            # ind_xが何もない場合はnan値として出力されるから良し
-                            # ind_xを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                            Ind_x = list(np.ravel(ind_x)[::1])
-                            sb_Ind_x = list(np.ravel(sb_ind_x)[::1])
-                            # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
-                            # runtimeエラーが出ないように工夫
-                            _bin_i, _bin_ierr = combine_normalized_points(
-                                Databox_kari[4,:][Ind_x],
-                                Monitorbox_kari[Ind_x],
-                                state['N_mcu'],
-                            )
-                            state['I'][ne,ny,nx] = _bin_i*ssf1
-                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
-                            _sb_bin_i, _sb_bin_ierr = combine_normalized_points(
-                                sb_Databox_kari[4,:][sb_Ind_x],
-                                sb_Monitorbox_kari[sb_Ind_x],
-                                state['N_mcu'],
-                            )
-                            state['sb_I'][ne,ny,nx] = _sb_bin_i*ssf2
-                            state['sb_Ierr'][ne,ny,nx] = _sb_bin_ierr*abs(ssf2)
+                    # Windowed (smoothed) binning: every window QU[nx]-dU < U <= QU[nx+1]+dU,
+                    # QV[ny]-dV < V <= QV[ny+1]+dV is read from a summed-area table instead of
+                    # searching all points for every (nx, ny).  Same points, same statistics.
+                    _bin_i, _bin_ierr, _bin_mon = window_bin_2d(
+                        Databox_kari[4,:], Monitorbox_kari, state['N_mcu'],
+                        Databox_kari[0,:]/state['NU1'], Databox_kari[1,:]/state['NV1'],
+                        state['QU'][:-1]-dU, state['QU'][1:]+dU, state['QV'][:-1]-dV, state['QV'][1:]+dV)
+                    state['I'][ne] = _bin_i*ssf1
+                    state['Ierr'][ne] = _bin_ierr*abs(ssf1)
+                    state['Imon'][ne] = _bin_mon
+                    # background may use its own smoothing width
+                    _sb_bin_i, _sb_bin_ierr, _ = window_bin_2d(
+                        sb_Databox_kari[4,:], sb_Monitorbox_kari, state['N_mcu'],
+                        sb_Databox_kari[0,:]/state['NU1'], sb_Databox_kari[1,:]/state['NV1'],
+                        state['QU'][:-1]-sb_dU, state['QU'][1:]+sb_dU, state['QV'][:-1]-sb_dV, state['QV'][1:]+sb_dV)
+                    state['sb_I'][ne] = _sb_bin_i*ssf2
+                    state['sb_Ierr'][ne] = _sb_bin_ierr*abs(ssf2)
 
                     state['I'] = np.where(np.isfinite(state['I']), state['I'], np.nan)
                     state['Ierr'] = np.where(np.isfinite(state['Ierr']), state['Ierr'], np.nan)
@@ -531,7 +474,7 @@ def data_box(env):
                         state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
 
                 # databoxとsb_databoxの処理
-                state['I'], state['Ierr'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'])
+                state['I'], state['Ierr'], state['Imon'] = bin_single_crystal_data(state['databox'], state['monitorbox'], state['N_mcu'], state['NV1'], state['NU1'], state['energylist'], state['QV'], state['QU'], return_monitor=True)
 
                 for ne in range(len(state['energylist'])):    
                     # Detailed-balance correction for chi''.
@@ -571,29 +514,16 @@ def data_box(env):
                     Ind_e = list(np.ravel(ind_e))
                     Databox_kari = state['databox'][:,Ind_e]
                     Monitorbox_kari = state['monitorbox'][Ind_e]
-                    for nx in range(state['nqu']-1):
-                        for ny in range(state['nqv']-1):
-                            #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                            #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                            # 条件を満たすインデックスを取得。
-                            ind_x = None
-                            Ind_x = None
-                            ind_x = (list(zip(*np.where(( state['QU'][nx]-dU < Databox_kari[0,:]/state['NU1'] ) & (Databox_kari[0,:]/state['NU1'] <= state['QU'][nx+1]+dU) & ( state['QV'][ny]-dV < Databox_kari[1,:]/state['NV1'] ) & ( Databox_kari[1,:]/state['NV1'] <= state['QV'][ny+1]+dV )))))
-                            # ind_xが何もない場合はnan値として出力されるから良し
-                            # ind_xを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                            Ind_x = list(np.ravel(ind_x)[::1])
-                            # ind_xが[(49, 0)]のように出力されるためInd_xで1次元化する。すると49,0...という１次元配列になるため、2つおきの数値[49]を取ってくるように[::1]を追加
-
-                            # runtimeエラーが出ないように工夫
-                            _bin_i, _bin_ierr = combine_normalized_points(
-                                Databox_kari[4,:][Ind_x],
-                                Monitorbox_kari[Ind_x],
-                                state['N_mcu'],
-                            )
-                            state['I'][ne,ny,nx] = _bin_i*ssf1
-                            state['Ierr'][ne,ny,nx] = _bin_ierr*abs(ssf1)
-                            #sb_I[ne,ny,nx]=(np.nansum(sb_Databox_kari[4,:][sb_Ind_x]))/len(sb_Ind_x)*ssf2
-                            #sb_Ierr[ne,ny,nx]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_x],sb_Databox_kari[5,:][sb_Ind_x])))**(1/2))/len(sb_Ind_x)*ssf2
+                    # Windowed (smoothed) binning: every window QU[nx]-dU < U <= QU[nx+1]+dU,
+                    # QV[ny]-dV < V <= QV[ny+1]+dV is read from a summed-area table instead of
+                    # searching all points for every (nx, ny).  Same points, same statistics.
+                    _bin_i, _bin_ierr, _bin_mon = window_bin_2d(
+                        Databox_kari[4,:], Monitorbox_kari, state['N_mcu'],
+                        Databox_kari[0,:]/state['NU1'], Databox_kari[1,:]/state['NV1'],
+                        state['QU'][:-1]-dU, state['QU'][1:]+dU, state['QV'][:-1]-dV, state['QV'][1:]+dV)
+                    state['I'][ne] = _bin_i*ssf1
+                    state['Ierr'][ne] = _bin_ierr*abs(ssf1)
+                    state['Imon'][ne] = _bin_mon
 
                     #I = np.where(np.isfinite(I), I, np.nan)
                     #Ierr = np.where(np.isfinite(Ierr), Ierr, np.nan)

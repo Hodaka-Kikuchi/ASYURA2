@@ -43,6 +43,12 @@ def loadfile(env):
     _show_ubmatrix = lambda UB: show_ubmatrix(env, UB)
     # 補正用fittingは常に毎回行う。変なファイルを選んだ時にcalibrationを毎回押すのはめんどくさい。そんなに時間もかからないし。
     # fittingから検出器効率の補正値を算出する
+    if not state.get('file_paths'):
+        messagebox.showinfo("ASYURA", "Please select data file(s) first.")
+        return
+    if not state.get('vfile_path'):
+        messagebox.showinfo("ASYURA", "Please select a vanadium (calibration) file first.")
+        return
     with open(state['vfile_path'][0], "r", encoding="utf-8") as f:
         line = f.readlines()
         chead = line[31]
@@ -1459,6 +1465,9 @@ def loadfile(env):
         state['sb_monitorbox'] = _masked_sb_databox[6, :].copy()
         state['sb_databox'] = _masked_sb_databox[:6, :]
     else:
+        # No background in this load: forget any background from an earlier
+        # load, otherwise Scattering Mode / auto range keep using it.
+        state['sb_databox'] = None
         state['sb_monitorbox'] = None
 
     # The display basis is explicitly right-handed, so the old post-hoc
@@ -1476,7 +1485,7 @@ def loadfile(env):
             state['hklbox'][:, _j] = _display_uv_to_hkl(
                 state['databox'][0:2, _j], state['u'], state['display_v_hkl'], state['NU1'], state['NV1']
             )
-        if len(state['sbfile_paths']) > 0:
+        if state.get('sb_databox') is not None:
             state['sb_hklbox'] = np.empty((3, state['sb_databox'].shape[1]), dtype=float)
             for _j in range(state['sb_databox'].shape[1]):
                 state['sb_hklbox'][:, _j] = _display_uv_to_hkl(

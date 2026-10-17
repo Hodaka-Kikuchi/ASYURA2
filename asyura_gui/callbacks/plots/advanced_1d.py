@@ -1,4 +1,5 @@
 from ...callback_runtime import *
+from ...figure_guard import base_figure_open, require_state
 
 def advanced_1D_alongE(env):
     axistype = env.get('axistype')
@@ -61,10 +62,8 @@ def advanced_1D_alongE(env):
     state['I_1d_alongE']=np.zeros((len(state['energylist'])))
     state['I_1d_alongE_err']=np.zeros((len(state['energylist'])))
     for ll in range(len(state['energylist'])):
-        n_nanind = (list(zip(*np.where(~np.isnan(state['I'][ll, Ind_parp_range[0]:Ind_parp_range[-1]+1, Ind_para_range[0]:Ind_para_range[-1]+1])))))
-        N_nanind = list(np.ravel(n_nanind)[::2])
-        state['I_1d_alongE'][ll] = np.nansum(state['I'][ll,Ind_parp_range[0]:Ind_parp_range[-1]+1,Ind_para_range[0]:Ind_para_range[-1]+1])/(len(N_nanind))
-        state['I_1d_alongE_err'][ll] = ((np.nansum(np.multiply(state['Ierr'][ll,Ind_parp_range[0]:Ind_parp_range[-1]+1,Ind_para_range[0]:Ind_para_range[-1]+1],state['Ierr'][ll,Ind_parp_range[0]:Ind_parp_range[-1]+1,Ind_para_range[0]:Ind_para_range[-1]+1])))**(1/2))/(len(N_nanind))
+        # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+        state['I_1d_alongE'][ll], state['I_1d_alongE_err'][ll] = combine_state_cells(state, lambda a: a[ll, Ind_parp_range[0]:Ind_parp_range[-1]+1, Ind_para_range[0]:Ind_para_range[-1]+1])
 
     if np.all(np.isnan(state['I_1d_alongE'])):
         pass
@@ -179,7 +178,7 @@ def add_advanced_1D_alongE(env):
     txt_ad04_1 = env.get('txt_ad04_1')
     txt_ad04_2 = env.get('txt_ad04_2')
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['adv1DE'])==True:
+    if base_figure_open(state, 'adv1DE', 'advanced ℏω vs I'):
         # 散乱面の読み込み
         u1=float(txt9.get())
         u2=float(txt10.get())
@@ -222,10 +221,8 @@ def add_advanced_1D_alongE(env):
         state['I_1d_alongE']=np.zeros((len(state['energylist'])))
         state['I_1d_alongE_err']=np.zeros((len(state['energylist'])))
         for ll in range(len(state['energylist'])):
-            n_nanind = (list(zip(*np.where(~np.isnan(state['I'][ll, Ind_parp_range[0]:Ind_parp_range[-1]+1, Ind_para_range[0]:Ind_para_range[-1]+1])))))
-            N_nanind = list(np.ravel(n_nanind)[::2])
-            state['I_1d_alongE'][ll] = np.nansum(state['I'][ll,Ind_parp_range[0]:Ind_parp_range[-1]+1,Ind_para_range[0]:Ind_para_range[-1]+1])/(len(N_nanind))
-            state['I_1d_alongE_err'][ll] = ((np.nansum(np.multiply(state['Ierr'][ll,Ind_parp_range[0]:Ind_parp_range[-1]+1,Ind_para_range[0]:Ind_para_range[-1]+1],state['Ierr'][ll,Ind_parp_range[0]:Ind_parp_range[-1]+1,Ind_para_range[0]:Ind_para_range[-1]+1])))**(1/2))/(len(N_nanind))
+            # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+            state['I_1d_alongE'][ll], state['I_1d_alongE_err'][ll] = combine_state_cells(state, lambda a: a[ll, Ind_parp_range[0]:Ind_parp_range[-1]+1, Ind_para_range[0]:Ind_para_range[-1]+1])
 
         if np.all(np.isnan(state['I_1d_alongE'])):
             pass
@@ -368,10 +365,8 @@ def advanced_1D_alongQ(env):
             ind_1d_range = list(zip(*np.where((Ycenter-pm <= state['QV2'] ) & (state['QV2'] <= Ycenter+pm))))
             Ind_1d_range = list(np.ravel(ind_1d_range))
 
-            n_nanind = (list(zip(*np.where(~np.isnan(state['I'][:,:,index_Xrange_0:index_Xrange_last+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])))))
-            N_nanind = list(np.ravel(n_nanind)[::2])
-            state['I_1d_alongQ'][i] = np.nansum(state['I'][:,:,index_Xrange_0:index_Xrange_last+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])/(len(N_nanind))
-            state['I_1d_alongQ_err'][i] = ((np.nansum(np.multiply(state['Ierr'][:,:,index_Xrange_0:index_Xrange_last+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i],state['Ierr'][:,:,index_Xrange_0:index_Xrange_last+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])))**(1/2))/(len(N_nanind))
+            # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+            state['I_1d_alongQ'][i], state['I_1d_alongQ_err'][i] = combine_state_cells(state, lambda a: a[:,:,index_Xrange_0:index_Xrange_last+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])
 
         # グラフの軸設定
         # X軸の範囲は入力した範囲
@@ -423,10 +418,8 @@ def advanced_1D_alongQ(env):
             state['table_1D'][i]=np.array([v1, v2, v3])* Xtable[i] + np.array([u1, u2, u3])*Ytable[i]
             ind_1d_range = list(zip(*np.where((Ycenter-pm <= state['QU2'] ) & (state['QU2'] <= Ycenter+pm))))
             Ind_1d_range = list(np.ravel(ind_1d_range))
-            n_nanind = (list(zip(*np.where(~np.isnan(state['I'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])))))
-            N_nanind = list(np.ravel(n_nanind)[::2])
-            state['I_1d_alongQ'][i] = np.nansum(state['I'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])/(len(N_nanind))
-            state['I_1d_alongQ_err'][i] = ((np.nansum(np.multiply(state['Ierr'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1],state['Ierr'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])))**(1/2))/(len(N_nanind))
+            # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+            state['I_1d_alongQ'][i], state['I_1d_alongQ_err'][i] = combine_state_cells(state, lambda a: a[:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])
         # グラフの軸設定
         # X軸の範囲は入力した範囲
 
@@ -558,7 +551,7 @@ def add_advanced_1D_alongQ(env):
     txt_ad03_3 = env.get('txt_ad03_3')
     txt_ad04_1 = env.get('txt_ad04_1')
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['adv1DQ'])==True:
+    if base_figure_open(state, 'adv1DQ', 'advanced hkl vs I'):
         # 散乱面の読み込み
         u1=float(txt9.get())
         u2=float(txt10.get())
@@ -640,10 +633,8 @@ def add_advanced_1D_alongQ(env):
                     state['table'][i]=np.array([u1, u2, u3])* Xtable[i] + np.array([v1, v2, v3])*Ytable[i]
                     ind_1d_range = list(zip(*np.where((Ycenter-pm <= state['QV2'] ) & (state['QV2'] <= Ycenter+pm))))
                     Ind_1d_range = list(np.ravel(ind_1d_range))
-                    n_nanind = (list(zip(*np.where(~np.isnan(state['I'][:,:,Uini_index:Ufin_index+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])))))
-                    N_nanind = list(np.ravel(n_nanind)[::2])
-                    state['I_1d_alongQ'][i] = np.nansum(state['I'][:,:,Uini_index:Ufin_index+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])/(len(N_nanind))
-                    state['I_1d_alongQ_err'][i] = ((np.nansum(np.multiply(state['Ierr'][:,:,Uini_index:Ufin_index+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i],state['Ierr'][:,:,Uini_index:Ufin_index+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])))**(1/2))/(len(N_nanind))
+                    # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                    state['I_1d_alongQ'][i], state['I_1d_alongQ_err'][i] = combine_state_cells(state, lambda a: a[:,:,Uini_index:Ufin_index+1][Ind_e, Ind_1d_range[0]:Ind_1d_range[-1]+1, i])
             # グラフの軸設定
             # X軸の範囲は入力した範囲
             Xlim_min=constants1[0]
@@ -681,10 +672,8 @@ def add_advanced_1D_alongQ(env):
                     state['table'][i]=np.array([v1, v2, v3])* Xtable[i] + np.array([u1, u2, u3])*Ytable[i]
                     ind_1d_range = list(zip(*np.where((Ycenter-pm <= state['QU2'] ) & (state['QU2'] <= Ycenter+pm))))
                     Ind_1d_range = list(np.ravel(ind_1d_range))
-                    n_nanind = (list(zip(*np.where(~np.isnan(state['I'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])))))
-                    N_nanind = list(np.ravel(n_nanind)[::2])
-                    state['I_1d_alongQ'][i] = np.nansum(state['I'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])/(len(N_nanind))
-                    state['I_1d_alongQ_err'][i] = ((np.nansum(np.multiply(state['Ierr'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1],state['Ierr'][:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])))**(1/2))/(len(N_nanind))
+                    # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                    state['I_1d_alongQ'][i], state['I_1d_alongQ_err'][i] = combine_state_cells(state, lambda a: a[:,index_Xrange_0:index_Xrange_last+1,:][Ind_e, i, Ind_1d_range[0]:Ind_1d_range[-1]+1])
                 # グラフの軸設定
                 # X軸の範囲は入力した範囲
                 Xlim_min=constants1[1]

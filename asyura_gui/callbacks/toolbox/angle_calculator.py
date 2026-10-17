@@ -29,6 +29,9 @@ def tta_calc(env):
     cal_h=float(txt_s1_2.get())
     cal_k=float(txt_s2_2.get())
     cal_l=float(txt_s3_2.get())
+    if cal_h == 0 and cal_k == 0 and cal_l == 0:
+        messagebox.showinfo("ASYURA", "Please enter a reflection (h, k, l) other than (0, 0, 0).")
+        return
     ef=float(txt_s4_2f.get())
     hw=float(txt_s4_2hw.get())
     ei=hw+ef

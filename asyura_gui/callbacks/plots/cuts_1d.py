@@ -1,4 +1,5 @@
 from ...callback_runtime import *
+from ...figure_guard import base_figure_open, require_state
 
 def constQmap_1D(env):
     axistype = env.get('axistype')
@@ -98,10 +99,8 @@ def constQmap_1D(env):
         state['Ierr_hw1d2'] = np.zeros(len(energy_axis))
 
         for ll in range(len(energy_axis)):
-            n_nanind = (list(zip(*np.where(~np.isnan(state['I'][ll, Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])))))
-            N_nanind = list(np.ravel(n_nanind)[::2])
-            state['I_hw1d2'][ll] = np.nansum(state['I'][ll,Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])/(len(N_nanind))
-            state['Ierr_hw1d2'][ll] = ((np.nansum(np.multiply(state['Ierr'][ll,Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1],state['Ierr'][ll,Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])))**(1/2))/(len(N_nanind))
+            # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+            state['I_hw1d2'][ll], state['Ierr_hw1d2'][ll] = combine_state_cells(state, lambda a: a[ll, Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])
 
 
         # 例外処理
@@ -223,7 +222,7 @@ def constQmap_1D2(env):
     energy_axis = get_single_crystal_map_energy_axis(state)
 
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['oneDE'])==True:
+    if base_figure_open(state, 'oneDE', 'ℏω vs I'):
         Uc=float(txt_1d_3.get())
         Upm=float(txt_1d_4.get())
         Vc=float(txt_1d_5.get())
@@ -263,10 +262,8 @@ def constQmap_1D2(env):
             state['Ierr_hw1d2'] = np.zeros(len(energy_axis))
 
             for ll in range(len(energy_axis)):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][ll, Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])))))
-                N_nanind = list(np.ravel(n_nanind)[::2])
-                state['I_hw1d2'][ll] = np.nansum(state['I'][ll,Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])/(len(N_nanind))
-                state['Ierr_hw1d2'][ll] = ((np.nansum(np.multiply(state['Ierr'][ll,Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1],state['Ierr'][ll,Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])))**(1/2))/(len(N_nanind))
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_hw1d2'][ll], state['Ierr_hw1d2'][ll] = combine_state_cells(state, lambda a: a[ll, Ind_1dE_V[0]:Ind_1dE_V[-1]+1, Ind_1dE_U[0]:Ind_1dE_U[-1]+1])
 
             # 例外処理
             if len(list(zip(*np.where(~np.isnan(state['I_hw1d2'])))))!=0:
@@ -347,10 +344,8 @@ def constE_1D_U(env):
         state['Ierr_1DU'] = np.zeros(len(state['QU'])-1)
 
         for mm in range(len(state['QU'])-1):
-            n_nanind = (list(zip(*np.where(~np.isnan(state['I'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])))))
-            N_nanind = list(np.ravel(n_nanind)[::2])
-            state['I_1DU'][mm] = np.nansum(state['I'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])/(len(N_nanind))
-            state['Ierr_1DU'][mm] = ((np.nansum(np.multiply(state['Ierr'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm],state['Ierr'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])))**(1/2))/(len(N_nanind))
+            # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+            state['I_1DU'][mm], state['Ierr_1DU'][mm] = combine_state_cells(state, lambda a: a[Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])
 
         #例外処理
         if len(list(zip(*np.where(~np.isnan(state['I_1DU'])))))!=0:
@@ -469,7 +464,7 @@ def constE_1D_U2(env):
     txt_1d_6 = env.get('txt_1d_6')
     txt_vl = env.get('txt_vl')
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['oneDU'])==True:
+    if base_figure_open(state, 'oneDU', 'the 1D cut along U (e.g. H vs I)'):
         # 追加の1Dカットをプロットする。
         Ind_e = None
         hwlist3 = None
@@ -499,10 +494,8 @@ def constE_1D_U2(env):
             state['I_1DU'] = np.zeros(len(state['QU'])-1)
             state['Ierr_1DU'] = np.zeros(len(state['QU'])-1)
             for mm in range(len(state['QU'])-1):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])))))
-                N_nanind = list(np.ravel(n_nanind)[::2])
-                state['I_1DU'][mm] = np.nansum(state['I'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])/(len(N_nanind))
-                state['Ierr_1DU'][mm] = ((np.nansum(np.multiply(state['Ierr'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm],state['Ierr'][Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])))**(1/2))/(len(N_nanind))
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_1DU'][mm], state['Ierr_1DU'][mm] = combine_state_cells(state, lambda a: a[Ind_e[0]:Ind_e[-1]+1,Ind_cE1dV[0]:Ind_cE1dV[-1]+1,mm])
 
             #例外処理
             if len(list(zip(*np.where(~np.isnan(state['I_1DU'])))))!=0:
@@ -583,10 +576,8 @@ def constE_1D_V(env):
         state['I_1DV'] = np.zeros(len(state['QV'])-1)
         state['Ierr_1DV'] = np.zeros(len(state['QV'])-1)
         for nn in range(len(state['QV'])-1):
-            n_nanind = (list(zip(*np.where(~np.isnan(state['I'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])))))
-            N_nanind = list(np.ravel(n_nanind)[::2])
-            state['I_1DV'][nn] = np.nansum(state['I'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])/(len(N_nanind))
-            state['Ierr_1DV'][nn] = ((np.nansum(np.multiply(state['Ierr'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1],state['Ierr'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])))**(1/2))/(len(N_nanind))
+            # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+            state['I_1DV'][nn], state['Ierr_1DV'][nn] = combine_state_cells(state, lambda a: a[Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])
 
         #例外処理
         if len(list(zip(*np.where(~np.isnan(state['I_1DV'])))))!=0:
@@ -705,7 +696,7 @@ def constE_1D_V2(env):
     txt_1d_4 = env.get('txt_1d_4')
     txt_ul = env.get('txt_ul')
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['oneDV'])==True:
+    if base_figure_open(state, 'oneDV', 'the 1D cut along V (e.g. K vs I)'):
         # 追加の1Dカットをプロットする。
         Ind_e = None
         hwlist2 = None
@@ -737,10 +728,8 @@ def constE_1D_V2(env):
             state['I_1DV'] = np.zeros(len(state['QV'])-1)
             state['Ierr_1DV'] = np.zeros(len(state['QV'])-1)
             for nn in range(len(state['QV'])-1):
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])))))
-                N_nanind = list(np.ravel(n_nanind)[::2])
-                state['I_1DV'][nn] = np.nansum(state['I'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])/(len(N_nanind))
-                state['Ierr_1DV'][nn] = ((np.nansum(np.multiply(state['Ierr'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1],state['Ierr'][Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])))**(1/2))/(len(N_nanind))
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_1DV'][nn], state['Ierr_1DV'][nn] = combine_state_cells(state, lambda a: a[Ind_e[0]:Ind_e[-1]+1,nn,Ind_cE1dU[0]:Ind_cE1dU[-1]+1])
 
             #例外処理
             if len(list(zip(*np.where(~np.isnan(state['I_1DV'])))))!=0:

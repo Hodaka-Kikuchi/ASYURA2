@@ -80,7 +80,7 @@ def set_range(env):
         bgt_txt3.insert(0,dqy)
     """
 
-    if sbListbox.size() != 0:# background fileが有る場合
+    if state.get('sb_databox') is not None:# background fileが有る場合
         if np.nanmin(state['databox'][0, :])<=np.nanmin(state['sb_databox'][0, :]):
             txt16.insert(0, round(np.nanmin(state['databox'][0, :] / state['NU1']) - 0.01, 2))
         else:
@@ -97,7 +97,7 @@ def set_range(env):
             txt20.insert(0, round(np.nanmax(state['databox'][1, :] / state['NV1']) + 0.01, 2))
         else:
             txt20.insert(0, round(np.nanmax(state['sb_databox'][1, :] / state['NV1']) + 0.01, 2))
-    elif sbListbox.size() == 0:# background fileが無い場合
+    elif state.get('sb_databox') is None:# background fileが無い場合
         txt16.insert(0, round(np.nanmin(state['databox'][0, :] / state['NU1']) - 0.01, 2))
         txt17.insert(0, round(np.nanmax(state['databox'][0, :] / state['NU1']) + 0.01, 2))
         txt19.insert(0, round(np.nanmin(state['databox'][1, :] / state['NV1']) - 0.01, 2))

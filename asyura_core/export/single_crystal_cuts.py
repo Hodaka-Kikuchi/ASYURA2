@@ -11,6 +11,8 @@ def save_1Dhw_I(state):
         initialdir="./",  # 自分自身のディレクトリ
         defaultextension="csv"
     )
+    if not filename:  # dialog cancelled
+        return
     
     # ヘッダーの作成
     header = ['hw (meV)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', 
@@ -40,6 +42,8 @@ def save_1DI_U(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     # ヘッダーの作成
     header = ['hw (meV)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', 
               f'{state['Vlabel']} (r.l.u.)', f'{state['Vlabel']} (r.l.u.)', f'{state['Vlabel']} (r.l.u.)', 
@@ -68,6 +72,8 @@ def save_1DI_V(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     # ヘッダーの作成
     header = ['hw (meV)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', f'{state['Ulabel']} (r.l.u.)', 
               f'{state['Vlabel']} (r.l.u.)', f'{state['Vlabel']} (r.l.u.)', f'{state['Vlabel']} (r.l.u.)', 

@@ -49,14 +49,8 @@ def advanced_2D_constE(env):
     #I[ll,nn,mm]=I[hw,V,U]の順番でリスト化されている。
     for nn in range(len(state['QV'])-1):
         for mm in range(len(state['QU'])-1):
-            n_nanind = (list(zip(*np.where(~np.isnan(state['I'][Ind_e,nn,mm])))))
-            N_nanind = list(np.ravel(n_nanind)[::1])
-            if N_nanind:
-                state['I_ce_adv'][nn,mm] = np.nansum(state['I'][Ind_e,nn,mm])/(len(N_nanind))
-                state['Ierr_ce_adv'][nn,mm] = ((np.nansum(np.multiply(state['Ierr'][Ind_e,nn,mm],state['Ierr'][Ind_e,nn,mm])))**(1/2))/(len(N_nanind))
-            else:
-                state['I_ce_adv'][nn,mm] = np.nan
-                state['Ierr_ce_adv'][nn,mm] = np.nan
+            # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+            state['I_ce_adv'][nn,mm], state['Ierr_ce_adv'][nn,mm] = combine_state_cells(state, lambda a: a[Ind_e,nn,mm])
     #図を出力する
     # 軸設定。空欄の場合は範囲マックスを表示するようにする
     if scale_s_Umin_txt.get()=="":
@@ -291,14 +285,8 @@ def advanced_2D_constQ(env):
                 # 条件を満たすインデックスを取得。Yrangeの±pmの範囲内にあるインデックス。この条件ではY軸はV
                 ind_cut = list(zip(*np.where((Yrange[i] - pm <= state['QV2'] ) & (state['QV2'] <= Yrange[i] + pm))))
                 Ind_cut = list(np.ravel(ind_cut))
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][:,:,index_Xrange_0:index_Xrange_last+1][ll,Ind_cut,i])))))
-                N_nanind = list(np.ravel(n_nanind)[::2])
-                if N_nanind:
-                    state['I_cq'][ll,i] = np.nansum(state['I'][:,:,index_Xrange_0:index_Xrange_last+1][ll,Ind_cut,i])/(len(N_nanind))
-                    state['I_cq_err'][ll,i] = np.nansum((np.multiply(state['Ierr'][:,:,index_Xrange_0:index_Xrange_last+1][ll,Ind_cut,i],state['Ierr'][:,:,index_Xrange_0:index_Xrange_last+1][ll,Ind_cut,i]))**(1/2))/(len(N_nanind))
-                else:
-                    state['I_cq'][ll,i] = np.nan
-                    state['I_cq_err'][ll,i] = np.nan
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_cq'][ll,i], state['I_cq_err'][ll,i] = combine_state_cells(state, lambda a: a[:,:,index_Xrange_0:index_Xrange_last+1][ll,Ind_cut,i])
 
     elif Unum<Vnum:
         N=Vnum
@@ -329,14 +317,8 @@ def advanced_2D_constQ(env):
                 # 条件を満たすインデックスを取得。Yrangeの±pmの範囲内にあるインデックス。この条件ではY軸はV
                 ind_cut = list(zip(*np.where((Yrange[i] - pm <= state['QU2'] ) & (state['QU2'] <= Yrange[i] + pm))))
                 Ind_cut = list(np.ravel(ind_cut))
-                n_nanind = (list(zip(*np.where(~np.isnan(state['I'][:,index_Xrange_0:index_Xrange_last+1,:][ll,i,Ind_cut])))))
-                N_nanind = list(np.ravel(n_nanind)[::2])
-                if N_nanind:
-                    state['I_cq'][ll,i] = np.nansum(state['I'][:,index_Xrange_0:index_Xrange_last+1,:][ll,i,Ind_cut])/(len(N_nanind))
-                    state['I_cq_err'][ll,i] = np.nansum((np.multiply(state['Ierr'][:,index_Xrange_0:index_Xrange_last+1,:][ll,i,Ind_cut],state['Ierr'][:,index_Xrange_0:index_Xrange_last+1,:][ll,i,Ind_cut]))**(1/2))/(len(N_nanind))
-                else:
-                    state['I_cq'][ll,i] = np.nan
-                    state['I_cq_err'][ll,i] = np.nan
+                # Monitor-weighted over the selected cells: N_mcu*sum(D)/sum(M_eff), err N_mcu*sqrt(sum(D))/sum(M_eff)
+                state['I_cq'][ll,i], state['I_cq_err'][ll,i] = combine_state_cells(state, lambda a: a[:,index_Xrange_0:index_Xrange_last+1,:][ll,i,Ind_cut])
     # X軸の範囲は入力した範囲
     if Unum>=Vnum:
         Xlim_min=constants1[0]

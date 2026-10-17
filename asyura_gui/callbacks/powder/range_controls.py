@@ -49,7 +49,7 @@ def p_set_range(env):
 
     txt01_p.delete(0,tk.END)
     txt02_p.delete(0,tk.END)
-    if sbListbox.size() != 0:# background fileが有る場合
+    if state.get('sb_databox') is not None:# background fileが有る場合
         if np.nanmin(state['databox'][2, :])<=np.nanmin(state['sb_databox'][2, :]):
             txt01_p.insert(0, round(np.nanmin(state['databox'][2, :]) - 0.01, 2))
         else:
@@ -58,7 +58,7 @@ def p_set_range(env):
             txt02_p.insert(0, round(np.nanmax(state['sb_databox'][2, :]) + 0.01, 2))
         else:
             txt02_p.insert(0, round(np.nanmax(state['databox'][2, :]) + 0.01, 2))
-    if sbListbox.size() == 0:# background fileが有る場合
+    if state.get('sb_databox') is None:# background fileが有る場合
         txt01_p.insert(0, round(np.nanmin(state['databox'][2, :]) - 0.01, 2))
         txt02_p.insert(0, round(np.nanmax(state['databox'][2, :]) + 0.01, 2))
 

@@ -3,6 +3,9 @@ from ...callback_runtime import *
 def calibration(env):
     i = env.get('i')
     state = env.get('state')
+    if not state.get('vfile_path'):
+        messagebox.showinfo("ASYURA", "Please select a vanadium (calibration) file first.")
+        return
     with open(state['vfile_path'][0],"r", encoding="utf-8") as f:
         line = f.readlines()
         head = line[31]

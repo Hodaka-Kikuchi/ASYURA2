@@ -1,4 +1,5 @@
 from ...callback_runtime import *
+from ...figure_guard import base_figure_open, require_state
 
 from .display_basis import prepare_simu_reciprocal_display
 
@@ -1018,7 +1019,7 @@ def add_simu_sc_cU(env):
     txt_vl = env.get('txt_vl')
     _prepare_simu_reciprocal_display = lambda *a, **kw: prepare_simu_reciprocal_display(env, *a, **kw)
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['num_fig_simu_sc_cU'])==True:
+    if base_figure_open(state, 'num_fig_simu_sc_cU', 'the const-U simulation'):
         a2_min = float(txt_s1.get())
         a2_inc = float(txt_s2.get())
         a2_max = float(txt_s3.get())
@@ -1286,6 +1287,8 @@ def add_simu_sc_cU(env):
 def add_simu_sc_cE(env):
     i = env.get('i')
     state = env.get('state')
+    if not require_state(state, 'list_hw', 'const E'):
+        return
     txt10 = env.get('txt10')
     txt11 = env.get('txt11')
     txt12 = env.get('txt12')
@@ -1772,7 +1775,7 @@ def add_simu_sc_cV(env):
     txt_vl = env.get('txt_vl')
     _prepare_simu_reciprocal_display = lambda *a, **kw: prepare_simu_reciprocal_display(env, *a, **kw)
     # 図番号が存在するかどうかの確認
-    if plt.fignum_exists(state['num_fig_simu_sc_cV'])==True:    
+    if base_figure_open(state, 'num_fig_simu_sc_cV', 'the const-V simulation'):    
         # グラフ文字の取得    
         a2_min = float(txt_s1.get())
         a2_inc = float(txt_s2.get())

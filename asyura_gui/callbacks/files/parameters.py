@@ -232,8 +232,11 @@ def initialize_param(env):
     ref_l  = peak1[2] 
     ref_a2 = peak1[3] 
     ref_c2 = peak1[4] 
-    ref_rx = peak1[5] 
-    ref_ry = peak1[6] 
+    # SPICE Peak1 order: h, k, l, a2, c2, mu, nu, ei, ef
+    # (mu = lower arc = ry motor, nu = upper arc = rx motor; cf. [AngleMode]
+    # LowerArc/UpperArc in the same ini).  These two were swapped before.
+    ref_ry = peak1[5] 
+    ref_rx = peak1[6] 
     ref_ei = peak1[7] 
     ref_ef = peak1[8] 
 
@@ -263,6 +266,15 @@ def initialize_param(env):
     set_entry(txt_ref_rx, ref_rx) 
     set_entry(txt_ref_ei, ref_ei) 
     set_entry(txt_ref_ef, ref_ef)
+
+    # The scattering-plane vectors (U, V) are taken from the first data file.
+    if not state.get('file_paths'):
+        messagebox.showinfo(
+            "ASYURA",
+            "Lattice and reference peak were read from the ini file.\n"
+            "Select a data file to also fill in the scattering vectors U and V.",
+        )
+        return
 
     #散乱面１の読み込み 
     with open(state['file_paths'][0],"r", encoding="utf-8") as f: 

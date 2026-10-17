@@ -11,6 +11,8 @@ def save_FGdata(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成,# 0 Qx, 1 Qy, 2 Q, 3 エネルギートランスファー,　4 規格化強度,  5 規格化エラーバー
     header = ['Qx (Å^-1)', 'Qy (Å^-1)', 'q (Å^-1)', 'hw (meV)', 'normalizerd I (a.u.)', 'normalizerd Err (a.u.)']
     #データ保存
@@ -26,6 +28,8 @@ def save_BGdata(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成,# 0 Qx, 1 Qy, 2 Q, 3 エネルギートランスファー,　4 規格化強度,  5 規格化エラーバー
     header = ['Qx (Å^-1)', 'Qy (Å^-1)', 'q (Å^-1)', 'hw (meV)', 'normalizerd I (a.u.)', 'normalizerd Err (a.u.)']
     #データ保存

@@ -5,6 +5,9 @@ def mergefile(env):
     state = env.get('state')
     # 試しにファイルをマージする機能を作成してみたがいまいち。まぁファイル整理はしやすいかな
     # 最初に選んだファイルのディレクトリを取得
+    if not state.get('file_paths'):
+        messagebox.showinfo("ASYURA", "Please select data file(s) to merge first.")
+        return
     base_dir = os.path.dirname(state['file_paths'][0])
 
     mf_path = tk.filedialog.asksaveasfilename(
@@ -12,6 +15,8 @@ def mergefile(env):
     #initialdir = "./", # 自分自身のディレクトリ
     initialdir=base_dir,# 1番目のファイルのディレクトリ
     defaultextension=".dat", filetypes=[("DAT files", "*.dat")])
+    if not mf_path:  # dialog cancelled
+        return
 
     for i in range(len(state['file_paths'])):
         #リストにあるファイルを順に読み込んでいく
@@ -108,6 +113,9 @@ def mergefile_sb(env):
     state = env.get('state')
     # 試しにファイルをマージする機能を作成してみたがいまいち。まぁファイル整理はしやすいかな
     # 最初に選んだファイルのディレクトリを取得
+    if not state.get('sbfile_paths'):
+        messagebox.showinfo("ASYURA", "Please select background file(s) to merge first.")
+        return
     base_dir = os.path.dirname(state['sbfile_paths'][0])
 
     mf_path = tk.filedialog.asksaveasfilename(
@@ -115,6 +123,8 @@ def mergefile_sb(env):
     #initialdir = "./", # 自分自身のディレクトリ
     initialdir=base_dir,# 1番目のファイルのディレクトリ
     defaultextension=".dat", filetypes=[("DAT files", "*.dat")])
+    if not mf_path:  # dialog cancelled
+        return
 
     for i in range(len(state['sbfile_paths'])):
         #リストにあるファイルを順に読み込んでいく

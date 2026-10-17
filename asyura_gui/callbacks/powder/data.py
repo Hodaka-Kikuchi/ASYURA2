@@ -29,25 +29,8 @@ def pow_data_box(env):
         dEfg = 0 # energy方向のsmoothing
         dEbg = 0 # energy方向のsmoothing
         # もとのコード
-        state['energylist']=(list(set(state['databox'][3,:])))
-        # さらにソートする(元のリストを書き換え)
-        state['energylist'].sort()
         # さらにエネルギートランスファーのトレランスを考慮して±E_TmeV以内は同じ数値にする。
-        Energylist = [state['energylist'][0]]  # 初めて値を代入
-
-        for i in range(1, (len(state['energylist'])-1)):
-            if Energylist[-1] <= state['energylist'][i] and state['energylist'][i] < Energylist[-1] + 2*E_T:
-                pass
-            else:
-                Energylist.append(state['energylist'][i+1])
-        # 最後の範囲が記録されないので最後に付け足す。
-        if Energylist[-1] == state['energylist'][-1]:
-            pass
-        else:
-            Energylist.append(state['energylist'][-1])
-        # energylistを再構成
-        state['energylist']=list(set(Energylist))
-        state['energylist'].sort()
+        state['energylist'] = group_energy_transfers(state['databox'][3,:], E_T)
 
     if hwp_nan.get()==1:# hw cellを指定している場合。
         Ebin = float(txt06_p.get())
@@ -143,6 +126,8 @@ def pow_data_box(env):
     state['Ipow_err']=np.zeros((len(state['energylist']),state['nq']-1))
     state['sb_Ipow']=np.zeros((len(state['energylist']),state['nq']-1))
     state['sb_Ipow_err']=np.zeros((len(state['energylist']),state['nq']-1))
+    # Summed effective foreground monitor per (E, |Q|) cell; weight for 1D cuts.
+    state['Ipow_mon']=np.zeros((len(state['energylist']),state['nq']-1))
 
     # shared variables are stored in state
     state['Q2']=np.zeros(state['nq']-1)
@@ -152,7 +137,7 @@ def pow_data_box(env):
     if CSX.get()==1:# S(q,w), kf/ki
         ssf1=1
         ssf2=float(sb_txt1.get())
-        if len(state['sbfile_paths'])>0:
+        if state.get('sb_databox') is not None:
             for ne in range(len(state['energylist'])):
                 # エネルギートランスファーのトレランスを読み込む。
                 # 条件を満たすインデックスを取得。まずエネルギーが一致している部分を取り出す
@@ -167,27 +152,25 @@ def pow_data_box(env):
 
                 Ind_e = list(np.ravel(ind_e))
                 Databox_kari = state['databox'][:,Ind_e]
+                Monitorbox_kari = state['monitorbox'][Ind_e]
                 sb_Ind_e = list(np.ravel(sb_ind_e))
                 sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
+                sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
 
-                for npow in range(state['nq']-1):
-                    state['Q2'][npow] = (state['Q'][npow]+state['Q'][npow+1])/2
-                    #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                    #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                    # Qセルの条件を満たすインデックスを取得。
-                    ind_q = (list(zip(*np.where(( state['Q'][npow]-dQ < Databox_kari[2,:] ) & (Databox_kari[2,:] <= state['Q'][npow+1]+dQ)))))
-                    sb_ind_q = (list(zip(*np.where(( state['Q'][npow]-sb_dQ < sb_Databox_kari[2,:] ) & (sb_Databox_kari[2,:] <= state['Q'][npow+1]+sb_dQ)))))
-
-                    # ind_qが何もない場合はnan値として出力されるから良し
-                    # ind_qを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                    Ind_q = list(np.ravel(ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    state['Ipow'][ne,npow]=(np.nanmean(Databox_kari[4,:][Ind_q]))*ssf1
-                    state['Ipow_err'][ne,npow]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_q],Databox_kari[5,:][Ind_q])))**(1/2))/(len(Ind_q))*ssf1
-                    sb_Ind_q = list(np.ravel(sb_ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    state['sb_Ipow'][ne,npow]=(np.nanmean(sb_Databox_kari[4,:][sb_Ind_q]))*ssf2
-                    state['sb_Ipow_err'][ne,npow]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_q],sb_Databox_kari[5,:][sb_Ind_q])))**(1/2))/(len(sb_Ind_q))*ssf2
+                state['Q2'][:] = (state['Q'][:-1]+state['Q'][1:])/2
+                # Windowed binning in |Q|: Q[n]-dQ < |Q| <= Q[n+1]+dQ for all n at once
+                # (sorted cumulative sums; same points and statistics as the former loop).
+                _bin_i, _bin_ierr, _bin_mon = window_bin_1d(
+                    Databox_kari[4,:], Monitorbox_kari, state['N_mcu'], Databox_kari[2,:],
+                    state['Q'][:-1]-dQ, state['Q'][1:]+dQ)
+                state['Ipow'][ne,:] = _bin_i*ssf1
+                state['Ipow_err'][ne,:] = _bin_ierr*abs(ssf1)
+                state['Ipow_mon'][ne,:] = _bin_mon
+                _sb_bin_i, _sb_bin_ierr, _ = window_bin_1d(
+                    sb_Databox_kari[4,:], sb_Monitorbox_kari, state['N_mcu'], sb_Databox_kari[2,:],
+                    state['Q'][:-1]-sb_dQ, state['Q'][1:]+sb_dQ)
+                state['sb_Ipow'][ne,:] = _sb_bin_i*ssf2
+                state['sb_Ipow_err'][ne,:] = _sb_bin_ierr*abs(ssf2)
 
                 state['Ipow'] = np.where(np.isfinite(state['Ipow']), state['Ipow'], np.nan)
                 state['Ipow_err'] = np.where(np.isfinite(state['Ipow_err']), state['Ipow_err'], np.nan)
@@ -227,22 +210,16 @@ def pow_data_box(env):
                 Ind_e = list(np.ravel(ind_e))
 
                 Databox_kari = state['databox'][:,Ind_e]
-                for npow in range(state['nq']-1):
-                    state['Q2'][npow] = (state['Q'][npow]+state['Q'][npow+1])/2
-                    #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                    #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                    # Qセルの条件を満たすインデックスを取得。
-                    ind_q = (list(zip(*np.where(( state['Q'][npow]-dQ < Databox_kari[2,:] ) & (Databox_kari[2,:] <= state['Q'][npow+1]+dQ)))))
-                    # ind_qが何もない場合はnan値として出力されるから良し
-                    # ind_qを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                    Ind_q = list(np.ravel(ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    state['Ipow'][ne,npow]=(np.nanmean(Databox_kari[4,:][Ind_q]))*ssf1
-                    state['Ipow_err'][ne,npow]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_q],Databox_kari[5,:][Ind_q])))**(1/2))/(len(Ind_q))*ssf1
-                    #sb_Ind_q = list(np.ravel(sb_ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    #sb_Ipow[ne,npow]=(np.nanmean(sb_Databox_kari[4,:][sb_Ind_q]))
-                    #sb_Ipow_err[ne,npow]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_q],sb_Databox_kari[5,:][sb_Ind_q])))**(1/2))/(len(sb_Ind_q))
+                Monitorbox_kari = state['monitorbox'][Ind_e]
+                state['Q2'][:] = (state['Q'][:-1]+state['Q'][1:])/2
+                # Windowed binning in |Q|: Q[n]-dQ < |Q| <= Q[n+1]+dQ for all n at once
+                # (sorted cumulative sums; same points and statistics as the former loop).
+                _bin_i, _bin_ierr, _bin_mon = window_bin_1d(
+                    Databox_kari[4,:], Monitorbox_kari, state['N_mcu'], Databox_kari[2,:],
+                    state['Q'][:-1]-dQ, state['Q'][1:]+dQ)
+                state['Ipow'][ne,:] = _bin_i*ssf1
+                state['Ipow_err'][ne,:] = _bin_ierr*abs(ssf1)
+                state['Ipow_mon'][ne,:] = _bin_mon
 
                 #Ipow = np.where(np.isfinite(Ipow), Ipow, np.nan)
                 #Ipow_err = np.where(np.isfinite(Ipow_err), Ipow_err, np.nan)
@@ -253,7 +230,7 @@ def pow_data_box(env):
                 state['pb3']["value"] = var3
                 state['pb3'].update()
     elif CSX.get()==2:# χ(q,w), kf/ki
-        if len(state['sbfile_paths'])>0:
+        if state.get('sb_databox') is not None:
             for ne in range(len(state['energylist'])):
                 # エネルギートランスファーのトレランスを読み込む。
                 # 条件を満たすインデックスを取得。まずエネルギーが一致している部分を取り出す
@@ -274,27 +251,25 @@ def pow_data_box(env):
 
                 Ind_e = list(np.ravel(ind_e))
                 Databox_kari = state['databox'][:,Ind_e]
+                Monitorbox_kari = state['monitorbox'][Ind_e]
                 sb_Ind_e = list(np.ravel(sb_ind_e))
                 sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
+                sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
 
-                for npow in range(state['nq']-1):
-                    state['Q2'][npow] = (state['Q'][npow]+state['Q'][npow+1])/2
-                    #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                    #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                    # Qセルの条件を満たすインデックスを取得。
-                    ind_q = (list(zip(*np.where(( state['Q'][npow]-dQ < Databox_kari[2,:] ) & (Databox_kari[2,:] <= state['Q'][npow+1]+dQ)))))
-                    sb_ind_q = (list(zip(*np.where(( state['Q'][npow]-sb_dQ < sb_Databox_kari[2,:] ) & (sb_Databox_kari[2,:] <= state['Q'][npow+1]+sb_dQ)))))
-
-                    # ind_qが何もない場合はnan値として出力されるから良し
-                    # ind_qを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                    Ind_q = list(np.ravel(ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    state['Ipow'][ne,npow]=(np.nanmean(Databox_kari[4,:][Ind_q]))*ssf1
-                    state['Ipow_err'][ne,npow]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_q],Databox_kari[5,:][Ind_q])))**(1/2))/(len(Ind_q))*ssf1
-                    sb_Ind_q = list(np.ravel(sb_ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    state['sb_Ipow'][ne,npow]=(np.nanmean(sb_Databox_kari[4,:][sb_Ind_q]))*ssf2
-                    state['sb_Ipow_err'][ne,npow]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_q],sb_Databox_kari[5,:][sb_Ind_q])))**(1/2))/(len(sb_Ind_q))*ssf2
+                state['Q2'][:] = (state['Q'][:-1]+state['Q'][1:])/2
+                # Windowed binning in |Q|: Q[n]-dQ < |Q| <= Q[n+1]+dQ for all n at once
+                # (sorted cumulative sums; same points and statistics as the former loop).
+                _bin_i, _bin_ierr, _bin_mon = window_bin_1d(
+                    Databox_kari[4,:], Monitorbox_kari, state['N_mcu'], Databox_kari[2,:],
+                    state['Q'][:-1]-dQ, state['Q'][1:]+dQ)
+                state['Ipow'][ne,:] = _bin_i*ssf1
+                state['Ipow_err'][ne,:] = _bin_ierr*abs(ssf1)
+                state['Ipow_mon'][ne,:] = _bin_mon
+                _sb_bin_i, _sb_bin_ierr, _ = window_bin_1d(
+                    sb_Databox_kari[4,:], sb_Monitorbox_kari, state['N_mcu'], sb_Databox_kari[2,:],
+                    state['Q'][:-1]-sb_dQ, state['Q'][1:]+sb_dQ)
+                state['sb_Ipow'][ne,:] = _sb_bin_i*ssf2
+                state['sb_Ipow_err'][ne,:] = _sb_bin_ierr*abs(ssf2)
 
                 state['Ipow'] = np.where(np.isfinite(state['Ipow']), state['Ipow'], np.nan)
                 state['Ipow_err'] = np.where(np.isfinite(state['Ipow_err']), state['Ipow_err'], np.nan)
@@ -340,22 +315,16 @@ def pow_data_box(env):
 
                 Ind_e = list(np.ravel(ind_e))
                 Databox_kari = state['databox'][:,Ind_e]
-                for npow in range(state['nq']-1):
-                    state['Q2'][npow] = (state['Q'][npow]+state['Q'][npow+1])/2
-                    #pixeld_data=Qvector[0,:][ ( QU[nx] < Qvector[0,:] ) & (Qvector[0,:] <= QU[nx])]
-                    #pixeld_data2=Qvector[1,:][ ( QV[ny] < Qvector[1,:] ) & (Qvector[1,:] <= QV[ny])]
-                    # Qセルの条件を満たすインデックスを取得。
-                    ind_q = (list(zip(*np.where(( state['Q'][npow]-dQ < Databox_kari[2,:] ) & (Databox_kari[2,:] <= state['Q'][npow+1]+dQ)))))
-                    # ind_qが何もない場合はnan値として出力されるから良し
-                    # ind_qを1次元化して0の要素を省く。そしてリスト型にして取り出す
-                    Ind_q = list(np.ravel(ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    state['Ipow'][ne,npow]=(np.nanmean(Databox_kari[4,:][Ind_q]))*ssf1
-                    state['Ipow_err'][ne,npow]=((np.nansum(np.multiply(Databox_kari[5,:][Ind_q],Databox_kari[5,:][Ind_q])))**(1/2))/(len(Ind_q))*ssf1
-                    #sb_Ind_q = list(np.ravel(sb_ind_q)[::1])
-                    # ind_xが何もない場合はnan値として出力されるから良し
-                    #sb_Ipow[ne,npow]=(np.nanmean(sb_Databox_kari[4,:][sb_Ind_q]))
-                    #sb_Ipow_err[ne,npow]=((np.nansum(np.multiply(sb_Databox_kari[5,:][sb_Ind_q],sb_Databox_kari[5,:][sb_Ind_q])))**(1/2))/(len(sb_Ind_q))
+                Monitorbox_kari = state['monitorbox'][Ind_e]
+                state['Q2'][:] = (state['Q'][:-1]+state['Q'][1:])/2
+                # Windowed binning in |Q|: Q[n]-dQ < |Q| <= Q[n+1]+dQ for all n at once
+                # (sorted cumulative sums; same points and statistics as the former loop).
+                _bin_i, _bin_ierr, _bin_mon = window_bin_1d(
+                    Databox_kari[4,:], Monitorbox_kari, state['N_mcu'], Databox_kari[2,:],
+                    state['Q'][:-1]-dQ, state['Q'][1:]+dQ)
+                state['Ipow'][ne,:] = _bin_i*ssf1
+                state['Ipow_err'][ne,:] = _bin_ierr*abs(ssf1)
+                state['Ipow_mon'][ne,:] = _bin_mon
 
                 #Ipow = np.where(np.isfinite(Ipow), Ipow, np.nan)
                 #Ipow_err = np.where(np.isfinite(Ipow_err), Ipow_err, np.nan)

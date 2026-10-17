@@ -11,6 +11,8 @@ def save_constEmap(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成
     # {u}と{v}の場合は[]のまま出力されてしまうので()に変換
     #u_str = f"({', '.join(map(str, u))})"
@@ -44,6 +46,8 @@ def save_hw_Umap(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成
     # {u}と{v}の場合は[]のまま出力されてしまうので()に変換
     #u_str = f"({', '.join(map(str, u))})"
@@ -76,6 +80,8 @@ def save_hw_Vmap(state):
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成
     # {u}と{v}の場合は[]のまま出力されてしまうので()に変換
     #u_str = f"({', '.join(map(str, u))})"
@@ -108,6 +114,8 @@ def save_2D_hw_qmap(state):#plt.pcolormesh(Q, hwlist_p , Ipow, cmap='jet', vmin=
         initialdir = "./", # 自分自身のディレクトリ
         defaultextension = "csv"
         )
+    if not filename:  # dialog cancelled
+        return
     #ヘッダーの作成
     header1 = ['hw (meV)']
     header2 = ['Q (A^-1)']

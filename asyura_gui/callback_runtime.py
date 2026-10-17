@@ -2,7 +2,7 @@
 # ASYURA
 # UB matrixによるoffsetの自動入力
 # 右上にバージョン情報を表示
-__version__ = '4.0.0'
+__version__ = '4.1.0'
 
 # cd C:\Users\h34\Documents\Python\ASYURA
 """
@@ -135,6 +135,8 @@ from asyura_core.ub import (
 )
 from asyura_core.data_processing import (
     bin_single_crystal_data, get_single_crystal_map_energy_axis,
+    combine_normalized_points, combine_binned_cells, combine_state_cells,
+    cell_monitor, group_energy_transfers, window_bin_1d, window_bin_2d,
 )
 from asyura_core.physics_tools import (
     energy_to_wavelength_wavenumber, wavelength_to_energy_wavenumber,

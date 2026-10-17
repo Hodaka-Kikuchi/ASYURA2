@@ -1,6 +1,7 @@
 """Analysis Hub / Single Crystal tab."""
 
 import tkinter as tk
+from ...figure_guard import base_figure_open, require_state
 from tkinter import ttk
 import numpy as np
 import matplotlib.pyplot as plt
@@ -53,7 +54,7 @@ def _build_tas_data_section(tab_4, state, xaxis_select, axistype):
     #追加でグラフを表示するボタンの定義
     def add_axis_select(): 
         # 図番号が存在するかどうかの確認
-        if plt.fignum_exists(state['fig_tas'])==True:
+        if base_figure_open(state, 'fig_tas', 'view data'):
             # データを読み込む
             #特定の行を読み込む
             with open(state['file_paths'][0],"r", encoding="utf-8") as f:
