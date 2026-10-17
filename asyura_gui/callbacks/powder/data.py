@@ -143,17 +143,17 @@ def pow_data_box(env):
                 # 条件を満たすインデックスを取得。まずエネルギーが一致している部分を取り出す
                 Databox_kari = None
                 sb_Databox_kari=None
-                ind_e = (list(zip(*np.where(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg))))))
-                sb_ind_e = (list(zip(*np.where(((state['energylist'][ne]-E_T-dEbg) <= state['sb_databox'][3,:]) & (state['sb_databox'][3,:] < (state['energylist'][ne]+E_T+dEbg))))))
-                if not ind_e:
+                ind_e = np.flatnonzero(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg)))
+                sb_ind_e = np.flatnonzero(((state['energylist'][ne]-E_T-dEbg) <= state['sb_databox'][3,:]) & (state['sb_databox'][3,:] < (state['energylist'][ne]+E_T+dEbg)))
+                if ind_e.size == 0:
                     state['energylist'][ne] = state['energylist'][ne]
                 else:
                     state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
 
-                Ind_e = list(np.ravel(ind_e))
+                Ind_e = ind_e
                 Databox_kari = state['databox'][:,Ind_e]
                 Monitorbox_kari = state['monitorbox'][Ind_e]
-                sb_Ind_e = list(np.ravel(sb_ind_e))
+                sb_Ind_e = sb_ind_e
                 sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
                 sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
 
@@ -202,12 +202,12 @@ def pow_data_box(env):
                 # エネルギートランスファーのトレランスを読み込む。
                 # 条件を満たすインデックスを取得。まずエネルギーが一致している部分を取り出す
                 Databox_kari = None
-                ind_e = (list(zip(*np.where(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg))))))
-                if not ind_e:
+                ind_e = np.flatnonzero(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg)))
+                if ind_e.size == 0:
                     state['energylist'][ne] = state['energylist'][ne]
                 else:
                     state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
-                Ind_e = list(np.ravel(ind_e))
+                Ind_e = ind_e
 
                 Databox_kari = state['databox'][:,Ind_e]
                 Monitorbox_kari = state['monitorbox'][Ind_e]
@@ -236,9 +236,9 @@ def pow_data_box(env):
                 # 条件を満たすインデックスを取得。まずエネルギーが一致している部分を取り出す
                 Databox_kari = None
                 sb_Databox_kari=None
-                ind_e = (list(zip(*np.where(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg))))))
-                sb_ind_e = (list(zip(*np.where(((state['energylist'][ne]-E_T-dEbg) <= state['sb_databox'][3,:]) & (state['sb_databox'][3,:] < (state['energylist'][ne]+E_T+dEbg))))))
-                if not ind_e:
+                ind_e = np.flatnonzero(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg)))
+                sb_ind_e = np.flatnonzero(((state['energylist'][ne]-E_T-dEbg) <= state['sb_databox'][3,:]) & (state['sb_databox'][3,:] < (state['energylist'][ne]+E_T+dEbg)))
+                if ind_e.size == 0:
                     state['energylist'][ne] = state['energylist'][ne]
                 else:
                     state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
@@ -248,10 +248,10 @@ def pow_data_box(env):
                 ssf1 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt2.get()))
                 ssf2 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt3.get()))
 
-                Ind_e = list(np.ravel(ind_e))
+                Ind_e = ind_e
                 Databox_kari = state['databox'][:,Ind_e]
                 Monitorbox_kari = state['monitorbox'][Ind_e]
-                sb_Ind_e = list(np.ravel(sb_ind_e))
+                sb_Ind_e = sb_ind_e
                 sb_Databox_kari = state['sb_databox'][:,sb_Ind_e]
                 sb_Monitorbox_kari = state['sb_monitorbox'][sb_Ind_e]
 
@@ -300,8 +300,8 @@ def pow_data_box(env):
                 # エネルギートランスファーのトレランスを読み込む。
                 # 条件を満たすインデックスを取得。まずエネルギーが一致している部分を取り出す
                 Databox_kari = None
-                ind_e = (list(zip(*np.where(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg))))))
-                if not ind_e:
+                ind_e = np.flatnonzero(((state['energylist'][ne]-E_T-dEfg) <= state['databox'][3,:]) & (state['databox'][3,:] < (state['energylist'][ne]+E_T+dEfg)))
+                if ind_e.size == 0:
                     state['energylist'][ne] = state['energylist'][ne]
                 else:
                     state['energylist'][ne] = np.mean(state['databox'][3,ind_e])
@@ -311,7 +311,7 @@ def pow_data_box(env):
                 ssf1 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt2.get()))
                 ssf2 = 1 - math.exp(-11.60497 * state['energylist'][ne] / float(sb_txt3.get()))
 
-                Ind_e = list(np.ravel(ind_e))
+                Ind_e = ind_e
                 Databox_kari = state['databox'][:,Ind_e]
                 Monitorbox_kari = state['monitorbox'][Ind_e]
                 state['Q2'][:] = (state['Q'][:-1]+state['Q'][1:])/2

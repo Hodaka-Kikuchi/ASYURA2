@@ -197,7 +197,8 @@ def group_energy_transfers(values, half_width):
         drop an isolated last value; powder mode appended the last raw value
         even when it was already covered, creating a near-duplicate energy).
     """
-    x = sorted({float(v) for v in np.ravel(values) if np.isfinite(v)})
+    v = np.asarray(values, dtype=float).ravel()
+    x = np.unique(v[np.isfinite(v)]).tolist()   # sorted unique values
     if not x:
         return []
     width = 2.0 * float(half_width)

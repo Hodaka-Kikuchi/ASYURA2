@@ -236,6 +236,67 @@ def test_energy_grouping_keeps_isolated_values():
 
 
 # ----------------------------------------------------------------------------
+# vectorised angle -> display-coordinate conversion used when loading
+# ----------------------------------------------------------------------------
+def test_batch_conversion_matches_scalar_with_tilt():
+    import contextlib, io
+    from asyura_core.geometry.conversion import _angles_to_hkl_and_uv, angles_to_display_xy_batch
+    from asyura_core.ub import _canonicalize_spice_ub_for_pdf, _make_crystallographic_display_basis
+    rng = np.random.default_rng(41)
+    hexagonal_ub = np.array([[-0.229465, -0.115340, -0.000168],
+                             [0.000495, 0.010648, -0.072427],
+                             [0.000728, -0.198087, -0.003795]])
+    for UB, u, v in [(hexagonal_ub, [1.0, 0, 0], [0, 0, 1.0]),
+                     (np.diag([0.2, 0.2, 0.2]), [1.0, 1.0, 0], [0, 0, 1.0])]:
+        u, v = np.array(u), np.array(v)
+        UBc, T = _canonicalize_spice_ub_for_pdf(UB, u, v)
+        with contextlib.redirect_stdout(io.StringIO()):
+            vdisp = _make_crystallographic_display_basis(UBc, u, v)[7]
+        n = 15
+        ei = rng.uniform(3.7, 8, n); c2 = rng.uniform(-120, 60, n)
+        ry = rng.uniform(-4, 4, n); rx = rng.uniform(-4, 4, n)
+        ef = 3.635 + rng.normal(0, 0.01, 24)
+        A2 = rng.uniform(20, 90, n)[:, None] + np.linspace(0, 46, 24)[None, :] - 22
+        args = (UBc, u, vdisp, -59.36, 12.3, +1.0)
+        kw = dict(ref_ry=0.834, ref_rx=-0.806, spice_to_pdf_transform=T)
+        got = angles_to_display_xy_batch(ei[:, None], ef[None, :], c2[:, None], A2, True, *args,
+                                         ry_deg=ry[:, None], rx_deg=rx[:, None], **kw)
+        ref = np.array([[_angles_to_hkl_and_uv(ei[i], ef[m], c2[i], A2[i, m], True, *args,
+                                               ry_deg=ry[i], rx_deg=rx[i], **kw)[0]
+                         for m in range(24)] for i in range(n)])
+        assert np.allclose(got.transpose(1, 2, 0), ref, rtol=0, atol=1e-12)
+    pg = angles_to_display_xy_batch(ei[:, None], ef[None, :], c2[:, None], A2, False)
+    pr = np.array([[_angles_to_hkl_and_uv(ei[i], ef[m], c2[i], A2[i, m], False)[0]
+                    for m in range(24)] for i in range(n)])
+    assert np.allclose(pg.transpose(1, 2, 0), pr, rtol=0, atol=1e-12)
+
+
+def test_simulation_batch_conversion_matches_scalar():
+    from asyura_core.geometry.conversion import _simu_angles_to_rlu, simu_angles_to_rlu_batch
+    from asyura_core.ub import _make_simulation_ub_from_lattice_uv
+    rng = np.random.default_rng(43)
+    for lat, u, v in [((5, 5, 5, 90, 90, 90), [1, 0, 0], [0, 1, 0]),
+                      ((5.04, 5.04, 13.8, 90, 90, 120), [1, 0, 0], [0, 0, 1]),
+                      ((5, 6, 7, 90, 100, 90), [1, 0, 0], [0, 1, 0])]:
+        u, v = np.array(u, float), np.array(v, float)
+        out = _make_simulation_ub_from_lattice_uv(*lat, u, v)
+        UB = out[0] if isinstance(out, tuple) else out
+        hw = rng.uniform(-2, 6, 3); c2 = rng.uniform(-120, 60, 4)
+        A2 = rng.uniform(15, 100, 3)[:, None] + np.linspace(0, 46, 24)[None, :] - 22
+        al, be, qn = simu_angles_to_rlu_batch((3.635 + hw)[:, None, None, None], 3.635,
+                                              c2[None, :, None, None], A2[None, None, :, :],
+                                              UB, u, v, 30.0, 12.0, 1.0)
+        for k in range(3):
+            for n in range(4):
+                for m in range(3):
+                    for l in range(0, 24, 5):
+                        r = _simu_angles_to_rlu(3.635 + hw[k], 3.635, c2[n], A2[m, l], UB, u, v,
+                                                0, 0, 30.0, 12.0, 1.0)
+                        assert np.allclose([al[k, n, m, l], be[k, n, m, l], qn[k, n, m, l]],
+                                           [r[0], r[1], np.linalg.norm(r[2])], rtol=0, atol=1e-12)
+
+
+# ----------------------------------------------------------------------------
 # save-menu guard: its fixed key table must match the exporters' source
 # ----------------------------------------------------------------------------
 def test_export_guard_table_matches_exporter_source():

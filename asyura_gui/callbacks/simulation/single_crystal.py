@@ -1,4 +1,5 @@
 from ...callback_runtime import *
+from asyura_core.geometry.conversion import simu_angles_to_rlu_batch
 from ...figure_guard import base_figure_open, require_state
 
 from .display_basis import prepare_simu_reciprocal_display
@@ -215,19 +216,21 @@ def simu_sc_cE(env):
     C2_max = np.ones((n_hw,1))*c2_max
     C2_min = np.ones((n_hw,1))*c2_min
     C2_inc = np.ones((n_hw,1))*c2_inc
-    for k in range(n_hw):
-        for n in range(n_c2):
-            for m in range(n_a2):
-                for l in range(24):
-                    #A2の絶対値変換
-                    A2=d_angle+state['phi']+a2[m];# cover range
-                    _sx, _sy, _q3, _hkl3, _res3 = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[l], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_x[k,l+24*m+24*n_a2*n] = _sx
-                    Qsimu_y[k,l+24*m+24*n_a2*n] = _sy
-                    # D12は再計算
-                    _dx, _dy, _q3d, _hkld, _resd = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[11], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_d12_x[k,n+n_c2*m] = _dx
-                    Qsimu_d12_y[k,n+n_c2*m] = _dy
+    # All (hw, C2, A2, detector) points at once.  Identical to the former
+    # hw/C2/A2/detector loop with _simu_angles_to_rlu (and its D12 call), but
+    # UB^-1 and the U/V projection are evaluated once instead of per point.
+    _A2all = d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None]   # (n_a2, 24)
+    _ei = 3.635 + np.asarray(hw, dtype=float).reshape(n_hw, -1)[:, 0]                   # (n_hw,)
+    _al, _be, _qn = simu_angles_to_rlu_batch(
+        _ei[:, None, None, None], 3.635, C2[None, :, None, None], _A2all[None, None, :, :],
+        state['UBmatrix'], state['u'], state['display_v_hkl'],
+        simu_ref_c2, simu_omega_ref, simu_c2_sign)                                    # (n_hw, n_c2, n_a2, 24)
+    # column l + 24*m + 24*n_a2*n  <->  axes (n, m, l)
+    Qsimu_x[:, :] = _al.reshape(n_hw, -1)
+    Qsimu_y[:, :] = _be.reshape(n_hw, -1)
+    # D12 (detector index 11): column n + n_c2*m  <->  axes (m, n)
+    Qsimu_d12_x[:, :] = _al[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
+    Qsimu_d12_y[:, :] = _be[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
 
     # sign flip is unnecessary; orientation is handled by the UB/display basis.
 
@@ -570,20 +573,22 @@ def simu_sc_cU(env):
     Qsimu=np.zeros((n_hw,n_a2*n_c2*24))
     Qsimu_d12_x=np.zeros((n_hw,n_a2*n_c2*1))
     Qsimu_d12_y=np.zeros((n_hw,n_a2*n_c2*1))
-    for k in range(n_hw):
-        for n in range(n_c2):
-            for m in range(n_a2):
-                for l in range(24):
-                    #A2の絶対値変換
-                    A2=d_angle+state['phi']+a2[m];# cover range
-                    _sx, _sy, _q3, _hkl3, _res3 = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[l], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_x[k,l+24*m+24*n_a2*n] = _sx
-                    Qsimu_y[k,l+24*m+24*n_a2*n] = _sy
-                    Qsimu[k,l+24*m+24*n_a2*n] = np.linalg.norm(_q3)
-                    # D12は再計算
-                    _dx, _dy, _q3d, _hkld, _resd = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[11], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_d12_x[k,n+n_c2*m] = _dx
-                    Qsimu_d12_y[k,n+n_c2*m] = _dy
+    # All (hw, C2, A2, detector) points at once.  Identical to the former
+    # hw/C2/A2/detector loop with _simu_angles_to_rlu (and its D12 call), but
+    # UB^-1 and the U/V projection are evaluated once instead of per point.
+    _A2all = d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None]   # (n_a2, 24)
+    _ei = 3.635 + np.asarray(hw, dtype=float).reshape(n_hw, -1)[:, 0]                   # (n_hw,)
+    _al, _be, _qn = simu_angles_to_rlu_batch(
+        _ei[:, None, None, None], 3.635, C2[None, :, None, None], _A2all[None, None, :, :],
+        state['UBmatrix'], state['u'], state['display_v_hkl'],
+        simu_ref_c2, simu_omega_ref, simu_c2_sign)                                    # (n_hw, n_c2, n_a2, 24)
+    # column l + 24*m + 24*n_a2*n  <->  axes (n, m, l)
+    Qsimu_x[:, :] = _al.reshape(n_hw, -1)
+    Qsimu_y[:, :] = _be.reshape(n_hw, -1)
+    Qsimu[:, :] = _qn.reshape(n_hw, -1)
+    # D12 (detector index 11): column n + n_c2*m  <->  axes (m, n)
+    Qsimu_d12_x[:, :] = _al[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
+    Qsimu_d12_y[:, :] = _be[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
 
     # sign flip is unnecessary; orientation is handled by the UB/display basis.
 
@@ -885,20 +890,22 @@ def simu_sc_cV(env):
     Qsimu=np.zeros((n_hw,n_a2*n_c2*24))
     Qsimu_d12_x=np.zeros((n_hw,n_a2*n_c2*1))
     Qsimu_d12_y=np.zeros((n_hw,n_a2*n_c2*1))
-    for k in range(n_hw):
-        for n in range(n_c2):
-            for m in range(n_a2):
-                for l in range(24):
-                    #A2の絶対値変換
-                    A2=d_angle+state['phi']+a2[m];# cover range
-                    _sx, _sy, _q3, _hkl3, _res3 = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[l], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_x[k,l+24*m+24*n_a2*n] = _sx
-                    Qsimu_y[k,l+24*m+24*n_a2*n] = _sy
-                    Qsimu[k,l+24*m+24*n_a2*n] = np.linalg.norm(_q3)
-                    # D12は再計算
-                    _dx, _dy, _q3d, _hkld, _resd = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[11], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_d12_x[k,n+n_c2*m] = _dx
-                    Qsimu_d12_y[k,n+n_c2*m] = _dy
+    # All (hw, C2, A2, detector) points at once.  Identical to the former
+    # hw/C2/A2/detector loop with _simu_angles_to_rlu (and its D12 call), but
+    # UB^-1 and the U/V projection are evaluated once instead of per point.
+    _A2all = d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None]   # (n_a2, 24)
+    _ei = 3.635 + np.asarray(hw, dtype=float).reshape(n_hw, -1)[:, 0]                   # (n_hw,)
+    _al, _be, _qn = simu_angles_to_rlu_batch(
+        _ei[:, None, None, None], 3.635, C2[None, :, None, None], _A2all[None, None, :, :],
+        state['UBmatrix'], state['u'], state['display_v_hkl'],
+        simu_ref_c2, simu_omega_ref, simu_c2_sign)                                    # (n_hw, n_c2, n_a2, 24)
+    # column l + 24*m + 24*n_a2*n  <->  axes (n, m, l)
+    Qsimu_x[:, :] = _al.reshape(n_hw, -1)
+    Qsimu_y[:, :] = _be.reshape(n_hw, -1)
+    Qsimu[:, :] = _qn.reshape(n_hw, -1)
+    # D12 (detector index 11): column n + n_c2*m  <->  axes (m, n)
+    Qsimu_d12_x[:, :] = _al[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
+    Qsimu_d12_y[:, :] = _be[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
     # sign flip is unnecessary; orientation is handled by the UB/display basis.
     #Vの指定範囲内にある点を探す。
     pmV_simu = (np.max(Qsimu)-np.min(Qsimu))/(24*n_a2)/state['NV1']*2
@@ -1198,20 +1205,22 @@ def add_simu_sc_cU(env):
         Qsimu=np.zeros((n_hw,n_a2*n_c2*24))
         Qsimu_d12_x=np.zeros((n_hw,n_a2*n_c2*1))
         Qsimu_d12_y=np.zeros((n_hw,n_a2*n_c2*1))
-        for k in range(n_hw):
-            for n in range(n_c2):
-                for m in range(n_a2):
-                    for l in range(24):
-                        #A2の絶対値変換
-                        A2=d_angle+state['phi']+a2[m];# cover range
-                        _sx, _sy, _q3, _hkl3, _res3 = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[l], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                        Qsimu_x[k,l+24*m+24*n_a2*n] = _sx
-                        Qsimu_y[k,l+24*m+24*n_a2*n] = _sy
-                        Qsimu[k,l+24*m+24*n_a2*n] = np.linalg.norm(_q3)
-                        # D12は再計算
-                        _dx, _dy, _q3d, _hkld, _resd = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[11], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                        Qsimu_d12_x[k,n+n_c2*m] = _dx
-                        Qsimu_d12_y[k,n+n_c2*m] = _dy
+        # All (hw, C2, A2, detector) points at once.  Identical to the former
+        # hw/C2/A2/detector loop with _simu_angles_to_rlu (and its D12 call), but
+        # UB^-1 and the U/V projection are evaluated once instead of per point.
+        _A2all = d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None]   # (n_a2, 24)
+        _ei = 3.635 + np.asarray(hw, dtype=float).reshape(n_hw, -1)[:, 0]                   # (n_hw,)
+        _al, _be, _qn = simu_angles_to_rlu_batch(
+            _ei[:, None, None, None], 3.635, C2[None, :, None, None], _A2all[None, None, :, :],
+            state['UBmatrix'], state['u'], state['display_v_hkl'],
+            simu_ref_c2, simu_omega_ref, simu_c2_sign)                                    # (n_hw, n_c2, n_a2, 24)
+        # column l + 24*m + 24*n_a2*n  <->  axes (n, m, l)
+        Qsimu_x[:, :] = _al.reshape(n_hw, -1)
+        Qsimu_y[:, :] = _be.reshape(n_hw, -1)
+        Qsimu[:, :] = _qn.reshape(n_hw, -1)
+        # D12 (detector index 11): column n + n_c2*m  <->  axes (m, n)
+        Qsimu_d12_x[:, :] = _al[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
+        Qsimu_d12_y[:, :] = _be[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
 
         # sign flip is unnecessary; orientation is handled by the UB/display basis.
 
@@ -1499,19 +1508,21 @@ def add_simu_sc_cE(env):
     C2_max = np.ones((n_hw,1))*c2_max
     C2_min = np.ones((n_hw,1))*c2_min
     C2_inc = np.ones((n_hw,1))*c2_inc
-    for k in range(n_hw):
-        for n in range(n_c2):
-            for m in range(n_a2):
-                for l in range(24):
-                    #A2の絶対値変換
-                    A2=d_angle+state['phi']+a2[m];# cover range
-                    _sx, _sy, _q3, _hkl3, _res3 = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[l], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_x[k,l+24*m+24*n_a2*n] = _sx
-                    Qsimu_y[k,l+24*m+24*n_a2*n] = _sy
-                    # D12は再計算
-                    _dx, _dy, _q3d, _hkld, _resd = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[11], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                    Qsimu_d12_x[k,n+n_c2*m] = _dx
-                    Qsimu_d12_y[k,n+n_c2*m] = _dy
+    # All (hw, C2, A2, detector) points at once.  Identical to the former
+    # hw/C2/A2/detector loop with _simu_angles_to_rlu (and its D12 call), but
+    # UB^-1 and the U/V projection are evaluated once instead of per point.
+    _A2all = d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None]   # (n_a2, 24)
+    _ei = 3.635 + np.asarray(hw, dtype=float).reshape(n_hw, -1)[:, 0]                   # (n_hw,)
+    _al, _be, _qn = simu_angles_to_rlu_batch(
+        _ei[:, None, None, None], 3.635, C2[None, :, None, None], _A2all[None, None, :, :],
+        state['UBmatrix'], state['u'], state['display_v_hkl'],
+        simu_ref_c2, simu_omega_ref, simu_c2_sign)                                    # (n_hw, n_c2, n_a2, 24)
+    # column l + 24*m + 24*n_a2*n  <->  axes (n, m, l)
+    Qsimu_x[:, :] = _al.reshape(n_hw, -1)
+    Qsimu_y[:, :] = _be.reshape(n_hw, -1)
+    # D12 (detector index 11): column n + n_c2*m  <->  axes (m, n)
+    Qsimu_d12_x[:, :] = _al[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
+    Qsimu_d12_y[:, :] = _be[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
 
     # sign flip is unnecessary; orientation is handled by the UB/display basis.
 
@@ -1956,20 +1967,22 @@ def add_simu_sc_cV(env):
         Qsimu=np.zeros((n_hw,n_a2*n_c2*24))
         Qsimu_d12_x=np.zeros((n_hw,n_a2*n_c2*1))
         Qsimu_d12_y=np.zeros((n_hw,n_a2*n_c2*1))
-        for k in range(n_hw):
-            for n in range(n_c2):
-                for m in range(n_a2):
-                    for l in range(24):
-                        #A2の絶対値変換
-                        A2=d_angle+state['phi']+a2[m];# cover range
-                        _sx, _sy, _q3, _hkl3, _res3 = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[l], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                        Qsimu_x[k,l+24*m+24*n_a2*n] = _sx
-                        Qsimu_y[k,l+24*m+24*n_a2*n] = _sy
-                        Qsimu[k,l+24*m+24*n_a2*n] = np.linalg.norm(_q3)
-                        # D12は再計算
-                        _dx, _dy, _q3d, _hkld, _resd = _simu_angles_to_rlu(3.635+float(np.asarray(hw[k]).reshape(-1)[0]), 3.635, C2[n], A2[11], state['UBmatrix'], state['u'], state['display_v_hkl'], state['NU1'], state['NV1'], simu_ref_c2, simu_omega_ref, simu_c2_sign)
-                        Qsimu_d12_x[k,n+n_c2*m] = _dx
-                        Qsimu_d12_y[k,n+n_c2*m] = _dy
+        # All (hw, C2, A2, detector) points at once.  Identical to the former
+        # hw/C2/A2/detector loop with _simu_angles_to_rlu (and its D12 call), but
+        # UB^-1 and the U/V projection are evaluated once instead of per point.
+        _A2all = d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None]   # (n_a2, 24)
+        _ei = 3.635 + np.asarray(hw, dtype=float).reshape(n_hw, -1)[:, 0]                   # (n_hw,)
+        _al, _be, _qn = simu_angles_to_rlu_batch(
+            _ei[:, None, None, None], 3.635, C2[None, :, None, None], _A2all[None, None, :, :],
+            state['UBmatrix'], state['u'], state['display_v_hkl'],
+            simu_ref_c2, simu_omega_ref, simu_c2_sign)                                    # (n_hw, n_c2, n_a2, 24)
+        # column l + 24*m + 24*n_a2*n  <->  axes (n, m, l)
+        Qsimu_x[:, :] = _al.reshape(n_hw, -1)
+        Qsimu_y[:, :] = _be.reshape(n_hw, -1)
+        Qsimu[:, :] = _qn.reshape(n_hw, -1)
+        # D12 (detector index 11): column n + n_c2*m  <->  axes (m, n)
+        Qsimu_d12_x[:, :] = _al[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
+        Qsimu_d12_y[:, :] = _be[..., 11].transpose(0, 2, 1).reshape(n_hw, -1)
 
         # sign flip is unnecessary; orientation is handled by the UB/display basis.
 

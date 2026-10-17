@@ -1,5 +1,6 @@
 from asyura_core.spice_models import SpiceReferencePeak
 from ...callback_runtime import *
+from asyura_core.geometry.conversion import angles_to_display_xy_batch
 
 from .ub_display import show_ubmatrix
 
@@ -449,6 +450,26 @@ def loadfile(env):
 
             #　HODACAで測定した点を計算してくれる
             #pythonでは行列の数えやfor文は0から始まるので注意すること
+            # Display coordinates of every (point, detector) of this file at once;
+            # column 24*n+m, identical to _angles_to_hkl_and_uv(...)[0] per element.
+            update_phi()
+            _XY = angles_to_display_xy_batch(
+                np.asarray(ei, dtype=float)[:, None],
+                (3.635 + fit_result[1, :])[None, :],
+                np.asarray(C2, dtype=float)[:, None],
+                d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None],
+                is_single_crystal,
+                state['data_UBmatrix'] if is_single_crystal else None,
+                state['u'] if is_single_crystal else None,
+                state['display_v_hkl'] if is_single_crystal else None,
+                data_ref_c2 if is_single_crystal else None,
+                data_omega_ref if is_single_crystal else None,
+                data_c2_sign if is_single_crystal else +1.0,
+                ry_deg=np.asarray(ry, dtype=float)[:, None],
+                rx_deg=np.asarray(rx, dtype=float)[:, None],
+                ref_ry=data_ref_ry, ref_rx=data_ref_rx,
+                spice_to_pdf_transform=state['data_spice_to_pdf'],
+            ).reshape(2, -1)
             for n in range(len(pt)):# nは各ファイルのデータの個数に対応
                 if is_single_crystal and n == 0:
                     print(
@@ -471,24 +492,7 @@ def loadfile(env):
                     # 各検出器の補正として-fit_result[1,m]
                     kf[0:2,24*n+m] = [math.sqrt((3.635+fit_result[1,m])/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt((3.635+fit_result[1,m])/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
                     #kf[0:2,24*n+m] = [math.sqrt(3.635/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt(3.635/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
-                    state['Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]                   
+                    state['Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
                     #powder用にqも入れておく
                     state['Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
                     # エネルギートランスファーの情報を入れる。各検出器の補正として-fit_result[1,m]
@@ -534,8 +538,10 @@ def loadfile(env):
                     dE = 0.01
                 else:
                     dE = float(bgt_txt1.get())
-                tol_A2 = float(bgt_txt4.get())
-                tol_C2 = float(bgt_txt5.get())
+                # A2 / C2 tolerance: an empty box means "no restriction" (+-180 deg),
+                # as described below; previously an empty box raised ValueError.
+                tol_A2 = float(bgt_txt4.get()) if bgt_txt4.get().strip() != '' else 180.0
+                tol_C2 = float(bgt_txt5.get()) if bgt_txt5.get().strip() != '' else 180.0
                 for k in range(len(state['sbfile_paths'])):
                     # データ形式が異なっているファイル(例えば、c2 scanとenergy scanが混じっていても)でも読み取れるように毎回読む仕様に変更する。
                     with open(state['sbfile_paths'][k],"r", encoding="utf-8") as f:
@@ -690,6 +696,26 @@ def loadfile(env):
 
                     #　HODACAで測定した点を計算してくれる
                     #pythonでは行列の数えやfor文は0から始まるので注意すること
+                    # Display coordinates of every (point, detector) of this file at once;
+                    # column 24*n+m, identical to _angles_to_hkl_and_uv(...)[0] per element.
+                    update_phi()
+                    _XY = angles_to_display_xy_batch(
+                        np.asarray(ei, dtype=float)[:, None],
+                        (3.635 + fit_result[1, :])[None, :],
+                        np.asarray(C2, dtype=float)[:, None],
+                        d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None],
+                        is_single_crystal,
+                        state['data_UBmatrix'] if is_single_crystal else None,
+                        state['u'] if is_single_crystal else None,
+                        state['display_v_hkl'] if is_single_crystal else None,
+                        data_ref_c2 if is_single_crystal else None,
+                        data_omega_ref if is_single_crystal else None,
+                        data_c2_sign if is_single_crystal else +1.0,
+                        ry_deg=np.asarray(ry, dtype=float)[:, None],
+                        rx_deg=np.asarray(rx, dtype=float)[:, None],
+                        ref_ry=data_ref_ry, ref_rx=data_ref_rx,
+                        spice_to_pdf_transform=state['data_spice_to_pdf'],
+                    ).reshape(2, -1)
                     for n in range(len(pt)):# nは各ファイルのデータの個数に対応
 
                         #ki_x[0,n] = math.sqrt(ei[n]/2.072)*math.cos(math.radians(-c2[n]))
@@ -719,47 +745,17 @@ def loadfile(env):
                             ind_tol_A2C2 = (list(zip(*np.where( ((a2[n] - tol_A2) < sba2) & (sba2 < (a2[n] + tol_A2)) & ((c2[n] - tol_C2) < sbc2) & (sbc2 < (c2[n] + tol_C2)) ))))
                             index_BG = list(np.ravel(ind_tol_A2C2))
 
+                            # Background sums for this point, computed once instead of 5x per detector
+                            # (same np.sum calls, so identical values).
+                            _bgD = [np.sum(sb_data_e[index_BG,5+_m]) for _m in range(24)]
+                            _bgM = np.sum(sb_data_e[index_BG,29])
                             for m in range(24):# mは検出器の番号に対応
                                 #ki2[:,24*n+m] = ki[:,n]
                                 # 各検出器の補正として-fit_result[1,m]
                                 kf[0:2,24*n+m] = [math.sqrt((3.635+fit_result[1,m])/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt((3.635+fit_result[1,m])/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
                                 #kf[0:2,24*n+m] = [math.sqrt(3.635/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt(3.635/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
-                                state['Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
-                                state['sb_Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
+                                state['Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
+                                state['sb_Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
                                 #powder用にqも入れておく
                                 state['Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
                                 state['sb_Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
@@ -769,13 +765,13 @@ def loadfile(env):
                                 # 強度の情報を入れる。ここでバナジウムとmcuの補正をする。12番を基準とする。
                                 lorentz_factor = 1
                                 state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
-                                state['sb_Qvector'][4,24*n+m] = np.sum(sb_data_e[index_BG,5+m])/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
+                                state['sb_Qvector'][4,24*n+m] = _bgD[m]/fit_result[0,m]*fit_result[0,11]*N_mcu/_bgM*lorentz_factor
                                 state['Qvector'][5,24*n+m] = (math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n])*lorentz_factor
                                 # Effective monitor/exposure for ratio-of-sums binning.
                                 # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
                                 state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
-                                state['sb_Qvector'][5,24*n+m] = math.sqrt(np.sum(sb_data_e[index_BG,5+m]))/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
-                                state['sb_Qvector'][6,24*n+m] = np.sum(sb_data_e[index_BG,29])*fit_result[0,m]/fit_result[0,11]/lorentz_factor
+                                state['sb_Qvector'][5,24*n+m] = math.sqrt(_bgD[m])/fit_result[0,m]*fit_result[0,11]*N_mcu/_bgM*lorentz_factor
+                                state['sb_Qvector'][6,24*n+m] = _bgM*fit_result[0,m]/fit_result[0,11]/lorentz_factor
 
                         else:# 対応するエネルギーが無かった場合
                             if sbtype2.get()==0:# Nanが選択されていない
@@ -784,42 +780,8 @@ def loadfile(env):
                                     # 各検出器の補正として-fit_result[1,m]
                                     kf[0:2,24*n+m] = [math.sqrt((3.635+fit_result[1,m])/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt((3.635+fit_result[1,m])/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
                                     #kf[0:2,24*n+m] = [math.sqrt(3.635/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt(3.635/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
-                                    state['Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
-                                    state['sb_Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
+                                    state['Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
+                                    state['sb_Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
                                     #powder用にqも入れておく
                                     state['Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
                                     state['sb_Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
@@ -1008,6 +970,26 @@ def loadfile(env):
 
                     #　HODACAで測定した点を計算してくれる
                     #pythonでは行列の数えやfor文は0から始まるので注意すること
+                    # Display coordinates of every (point, detector) of this file at once;
+                    # column 24*n+m, identical to _angles_to_hkl_and_uv(...)[0] per element.
+                    update_phi()
+                    _XY = angles_to_display_xy_batch(
+                        np.asarray(ei, dtype=float)[:, None],
+                        (3.635 + fit_result[1, :])[None, :],
+                        np.asarray(C2, dtype=float)[:, None],
+                        d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None],
+                        is_single_crystal,
+                        state['data_UBmatrix'] if is_single_crystal else None,
+                        state['u'] if is_single_crystal else None,
+                        state['display_v_hkl'] if is_single_crystal else None,
+                        data_ref_c2 if is_single_crystal else None,
+                        data_omega_ref if is_single_crystal else None,
+                        data_c2_sign if is_single_crystal else +1.0,
+                        ry_deg=np.asarray(ry, dtype=float)[:, None],
+                        rx_deg=np.asarray(rx, dtype=float)[:, None],
+                        ref_ry=data_ref_ry, ref_rx=data_ref_rx,
+                        spice_to_pdf_transform=state['data_spice_to_pdf'],
+                    ).reshape(2, -1)
                     for n in range(len(pt)):# nは各ファイルのデータの個数に対応
 
                         #ki_x[0,n] = math.sqrt(ei[n]/2.072)*math.cos(math.radians(-c2[n]))
@@ -1041,47 +1023,17 @@ def loadfile(env):
 
                             # closest_a2_indices かつ closest_c2_index に含まれるインデックスを取得
                             index_BG = closest_a2_indices[closest_c2_index]
+                            # Background sums for this point, computed once instead of 5x per detector
+                            # (same np.sum calls, so identical values).
+                            _bgD = [np.sum(sb_data_e[index_BG,5+_m]) for _m in range(24)]
+                            _bgM = np.sum(sb_data_e[index_BG,29])
                             for m in range(24):# mは検出器の番号に対応
                                 #ki2[:,24*n+m] = ki[:,n]
                                 # 各検出器の補正として-fit_result[1,m]
                                 kf[0:2,24*n+m] = [math.sqrt((3.635+fit_result[1,m])/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt((3.635+fit_result[1,m])/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
                                 #kf[0:2,24*n+m] = [math.sqrt(3.635/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt(3.635/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
-                                state['Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
-                                state['sb_Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
+                                state['Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
+                                state['sb_Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
                                 #powder用にqも入れておく
                                 state['Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
                                 state['sb_Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
@@ -1091,13 +1043,13 @@ def loadfile(env):
                                 # 強度の情報を入れる。ここでバナジウムとmcuの補正をする。12番を基準とする。
                                 lorentz_factor = 1
                                 state['Qvector'][4,24*n+m] = D[n,m]/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
-                                state['sb_Qvector'][4,24*n+m] = np.sum(sb_data_e[index_BG,5+m])/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
+                                state['sb_Qvector'][4,24*n+m] = _bgD[m]/fit_result[0,m]*fit_result[0,11]*N_mcu/_bgM*lorentz_factor
                                 state['Qvector'][5,24*n+m] = math.sqrt(D[n,m])/fit_result[0,m]*fit_result[0,11]*N_mcu/mcu[n]*lorentz_factor
                                 # Effective monitor/exposure for ratio-of-sums binning.
                                 # I_norm = D * N_mcu / M_eff, including the channel-sensitivity correction.
                                 state['Qvector'][6,24*n+m] = mcu[n]*fit_result[0,m]/fit_result[0,11]/lorentz_factor
-                                state['sb_Qvector'][5,24*n+m] = math.sqrt(np.sum(sb_data_e[index_BG,5+m]))/fit_result[0,m]*fit_result[0,11]*N_mcu/np.sum(sb_data_e[index_BG,29])*lorentz_factor
-                                state['sb_Qvector'][6,24*n+m] = np.sum(sb_data_e[index_BG,29])*fit_result[0,m]/fit_result[0,11]/lorentz_factor
+                                state['sb_Qvector'][5,24*n+m] = math.sqrt(_bgD[m])/fit_result[0,m]*fit_result[0,11]*N_mcu/_bgM*lorentz_factor
+                                state['sb_Qvector'][6,24*n+m] = _bgM*fit_result[0,m]/fit_result[0,11]/lorentz_factor
 
                         else:# 対応するエネルギーが無かった場合
                             if sbtype2.get()==0:# Nanが選択されていない
@@ -1106,42 +1058,8 @@ def loadfile(env):
                                     # 各検出器の補正として-fit_result[1,m]
                                     kf[0:2,24*n+m] = [math.sqrt((3.635+fit_result[1,m])/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt((3.635+fit_result[1,m])/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
                                     #kf[0:2,24*n+m] = [math.sqrt(3.635/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt(3.635/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
-                                    state['Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
-                                    state['sb_Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]
+                                    state['Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
+                                    state['sb_Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
                                     #powder用にqも入れておく
                                     state['Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
                                     state['sb_Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
@@ -1256,6 +1174,26 @@ def loadfile(env):
 
                 #　HODACAで測定した点を計算してくれる
                 #pythonでは行列の数えやfor文は0から始まるので注意すること
+                # Display coordinates of every (point, detector) of this file at once;
+                # column 24*n+m, identical to _angles_to_hkl_and_uv(...)[0] per element.
+                update_phi()
+                _XY = angles_to_display_xy_batch(
+                    np.asarray(ei, dtype=float)[:, None],
+                    (3.635 + fit_result[1, :])[None, :],
+                    np.asarray(C2, dtype=float)[:, None],
+                    d_angle[None, :] + state['phi'] + np.asarray(a2, dtype=float)[:, None],
+                    is_single_crystal,
+                    state['data_UBmatrix'] if is_single_crystal else None,
+                    state['u'] if is_single_crystal else None,
+                    state['display_v_hkl'] if is_single_crystal else None,
+                    data_ref_c2 if is_single_crystal else None,
+                    data_omega_ref if is_single_crystal else None,
+                    data_c2_sign if is_single_crystal else +1.0,
+                    ry_deg=np.asarray(ry, dtype=float)[:, None],
+                    rx_deg=np.asarray(rx, dtype=float)[:, None],
+                    ref_ry=data_ref_ry, ref_rx=data_ref_rx,
+                    spice_to_pdf_transform=state['data_spice_to_pdf'],
+                ).reshape(2, -1)
                 for n in range(len(pt)):# nは各ファイルのデータの個数に対応
                     #ki_x[0,n] = math.sqrt(ei[n]/2.072)*math.cos(math.radians(-c2[n]))
                     #ki_y[0,n] = -math.sqrt(ei[n]/2.072)*math.sin(math.radians(-c2[n]))
@@ -1268,24 +1206,7 @@ def loadfile(env):
                         # 各検出器の補正として-fit_result[1,m]
                         kf[0:2,24*n+m] = [math.sqrt((3.635+fit_result[1,m])/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt((3.635+fit_result[1,m])/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
                         #kf[0:2,24*n+m] = [math.sqrt(3.635/2.072)*math.cos(math.radians(A2[m]-C2[n])),-math.sqrt(3.635/2.072)*math.sin(math.radians(A2[m]-C2[n]))]
-                        state['Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                                    ei[n],
-                                    3.635+fit_result[1,m],
-                                    C2[n],
-                                    A2[m],
-                                    is_single_crystal,
-                                    state['data_UBmatrix'] if is_single_crystal else None,
-                                    state['u'] if is_single_crystal else None,
-                                    state['display_v_hkl'] if is_single_crystal else None,
-                                data_ref_c2 if is_single_crystal else None,
-                                data_omega_ref if is_single_crystal else None,
-                                data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=ry[n],
-                                    rx_deg=rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                                )[0]                   
+                        state['Qvector'][0:2,24*n+m] = _XY[:, 24*n+m]
                         #powder用にqも入れておく
                         state['Qvector'][2,24*n+m] = math.sqrt((ki[0,n] - kf[0,24*n+m])**2+(ki[1,n] - kf[1,24*n+m])**2)
                         # エネルギートランスファーの情報を入れる。各検出器の補正として-fit_result[1,m]
@@ -1392,6 +1313,25 @@ def loadfile(env):
 
                 #　HODACAで測定した点を計算してくれる
                 #pythonでは行列の数えやfor文は0から始まるので注意すること
+                # Display coordinates of every (point, detector) of this file at once;
+                # column 24*n+m, identical to _angles_to_hkl_and_uv(...)[0] per element.
+                _sbXY = angles_to_display_xy_batch(
+                    np.asarray(sb_ei, dtype=float)[:, None],
+                    (3.635 + fit_result[1, :])[None, :],
+                    np.asarray(sb_C2, dtype=float)[:, None],
+                    d_angle[None, :] + state['phi'] + np.asarray(sb_a2, dtype=float)[:, None],
+                    is_single_crystal,
+                    state['data_UBmatrix'] if is_single_crystal else None,
+                    state['u'] if is_single_crystal else None,
+                    state['display_v_hkl'] if is_single_crystal else None,
+                    data_ref_c2 if is_single_crystal else None,
+                    data_omega_ref if is_single_crystal else None,
+                    data_c2_sign if is_single_crystal else +1.0,
+                    ry_deg=np.asarray(sb_ry, dtype=float)[:, None],
+                    rx_deg=np.asarray(sb_rx, dtype=float)[:, None],
+                    ref_ry=data_ref_ry, ref_rx=data_ref_rx,
+                    spice_to_pdf_transform=state['data_spice_to_pdf'],
+                ).reshape(2, -1)
                 for n in range(len(sb_pt)):# nは各ファイルのデータの個数に対応
                     #sb_ki_x[0,n] = math.sqrt(ei[n]/2.072)*math.cos(math.radians(-c2[n]))
                     #sb_ki_y[0,n] = -math.sqrt(ei[n]/2.072)*math.sin(math.radians(-c2[n]))
@@ -1403,24 +1343,7 @@ def loadfile(env):
                         # 各検出器の補正として-fit_result[1,m]
                         sb_kf[0:2,24*n+m] = [math.sqrt((3.635+fit_result[1,m])/2.072)*math.cos(math.radians(sb_A2[m]-sb_C2[n])),-math.sqrt((3.635+fit_result[1,m])/2.072)*math.sin(math.radians(sb_A2[m]-sb_C2[n]))]
                         #sb_kf[0:2,24*n+m] = [math.sqrt(3.635/2.072)*math.cos(math.radians(sb_A2[m]-sb_C2[n])),-math.sqrt(3.635/2.072)*math.sin(math.radians(sb_A2[m]-sb_C2[n]))]
-                        state['sb_Qvector'][0:2,24*n+m] = _angles_to_hkl_and_uv(
-                            sb_ei[n],
-                            3.635+fit_result[1,m],
-                            sb_C2[n],
-                            sb_A2[m],
-                            is_single_crystal,
-                            state['data_UBmatrix'] if is_single_crystal else None,
-                            state['u'] if is_single_crystal else None,
-                            state['display_v_hkl'] if is_single_crystal else None,
-                        data_ref_c2 if is_single_crystal else None,
-                        data_omega_ref if is_single_crystal else None,
-                        data_c2_sign if is_single_crystal else +1.0,
-                                    ry_deg=sb_ry[n],
-                                    rx_deg=sb_rx[n],
-                                    ref_ry=data_ref_ry,
-                                    ref_rx=data_ref_rx,
-                                    spice_to_pdf_transform=state['data_spice_to_pdf']
-                        )[0]                   
+                        state['sb_Qvector'][0:2,24*n+m] = _sbXY[:, 24*n+m]
                         #powder用にqも入れておく
                         state['sb_Qvector'][2,24*n+m] = math.sqrt((sb_ki[0,n] - sb_kf[0,24*n+m])**2+(sb_ki[1,n] - sb_kf[1,24*n+m])**2)
                         # エネルギートランスファーの情報を入れる。各検出器の補正として-fit_result[1,m]
@@ -1480,17 +1403,18 @@ def loadfile(env):
     # powder rows remain [Qx, Qy, |Q|, dE, intensity, error].
     # shared variables are stored in state
     if is_single_crystal:
-        state['hklbox'] = np.empty((3, state['databox'].shape[1]), dtype=float)
-        for _j in range(state['databox'].shape[1]):
-            state['hklbox'][:, _j] = _display_uv_to_hkl(
-                state['databox'][0:2, _j], state['u'], state['display_v_hkl'], state['NU1'], state['NV1']
-            )
+        # HKL = (X/NU1)*U + (Y/NV1)*V for all columns at once
+        # (same arithmetic as _display_uv_to_hkl per column).
+        def _uv_to_hkl_columns(box):
+            nu, nv = float(state['NU1']), float(state['NV1'])
+            if nu == 0.0 or nv == 0.0:
+                return np.full((3, box.shape[1]), np.nan)
+            U = np.asarray(state['u'], dtype=float)[:, None]
+            V = np.asarray(state['display_v_hkl'], dtype=float)[:, None]
+            return (np.asarray(box[0], dtype=float) / nu) * U + (np.asarray(box[1], dtype=float) / nv) * V
+        state['hklbox'] = _uv_to_hkl_columns(state['databox'])
         if state.get('sb_databox') is not None:
-            state['sb_hklbox'] = np.empty((3, state['sb_databox'].shape[1]), dtype=float)
-            for _j in range(state['sb_databox'].shape[1]):
-                state['sb_hklbox'][:, _j] = _display_uv_to_hkl(
-                    state['sb_databox'][0:2, _j], state['u'], state['display_v_hkl'], state['NU1'], state['NV1']
-                )
+            state['sb_hklbox'] = _uv_to_hkl_columns(state['sb_databox'])
         else:
             state['sb_hklbox'] = None
     else:
