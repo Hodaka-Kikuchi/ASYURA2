@@ -236,6 +236,39 @@ def test_energy_grouping_keeps_isolated_values():
 
 
 # ----------------------------------------------------------------------------
+# save-menu guard: its fixed key table must match the exporters' source
+# ----------------------------------------------------------------------------
+def test_export_guard_table_matches_exporter_source():
+    """guard.REQUIRED_STATE_KEYS is a fixed table (the frozen app has no .py
+    sources to inspect).  Re-derive it from the exporter sources here."""
+    import ast
+    export_dir = ROOT / "asyura_core" / "export"
+    derived = {}
+    for path in sorted(export_dir.glob("*.py")):
+        if path.name in ("__init__.py", "guard.py"):
+            continue
+        for node in ast.parse(path.read_text(encoding="utf-8")).body:
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("save_"):
+                derived[node.name] = tuple(sorted({
+                    n.slice.value for n in ast.walk(node)
+                    if isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)
+                    and n.value.id == "state" and isinstance(n.slice, ast.Constant)
+                    and isinstance(n.slice.value, str)}))
+    guard_src = (export_dir / "guard.py").read_text(encoding="utf-8")
+    table = next(ast.literal_eval(n.value) for n in ast.parse(guard_src).body
+                 if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "REQUIRED_STATE_KEYS")
+    assert table == derived
+
+
+def test_shipped_modules_do_not_read_their_own_source():
+    """PyInstaller apps contain only bytecode: inspect.getsource() etc. fail there."""
+    for path in list((ROOT / "asyura_core").rglob("*.py")) + list((ROOT / "asyura_gui").rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        for bad in ("inspect.getsource", "getsourcelines", "inspect.findsource"):
+            assert bad not in text, f"{path.relative_to(ROOT)} uses {bad}"
+
+
+# ----------------------------------------------------------------------------
 # GUI callbacks end to end (tkinter widgets replaced by tiny fakes)
 # ----------------------------------------------------------------------------
 def _import_callbacks():
